@@ -20,3 +20,6 @@ def delete_item(db: Session, item_id: int):
         db.delete(db_item)
         db.commit()
     return db_item
+
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
