@@ -4,6 +4,7 @@ from ..database import SessionLocal, Base, engine
 from sqlalchemy import Column, Integer, String
 from .. import crud, schemas, auth
 from ..models import TestUser, User, UserDetails, UserSocialDetails
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -14,12 +15,14 @@ def get_db():
     finally:
         db.close()
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 @router.post("/login")
-def login_user(
-    email: str,
-    password: str,
-    db: Session = Depends(get_db)
-):
+def login_user(payload: LoginRequest, db: Session = Depends(get_db)):
+    email = payload.email
+    password = payload.password
     user = db.query(User).filter(User.username == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
