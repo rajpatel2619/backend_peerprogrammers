@@ -1,15 +1,22 @@
+
+# ✅ Ensure this import registers all models BEFORE create_all
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from .routers import item, login, signup
 from .database import engine, Base
+from . import models
+from .routers import item, login, signup, course
+from fastapi.middleware.cors import CORSMiddleware
+
+
 app = FastAPI()
 
+print("Creating tables if they don't exist...")
+print("Tables known to Base.metadata:", Base.metadata.tables.keys())
 Base.metadata.create_all(bind=engine)
+print("Table creation done.")
 
-# Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # frontend port
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -18,3 +25,8 @@ app.add_middleware(
 app.include_router(item.router)
 app.include_router(login.router)
 app.include_router(signup.router)
+app.include_router(course.router)
+
+# @app.on_event("startup")
+# def create_tables():
+#     Base.metadata.create_all(bind=engine)

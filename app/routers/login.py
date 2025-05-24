@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from ..database import SessionLocal, Base, engine
 from sqlalchemy import Column, Integer, String
 from .. import crud, schemas, auth
-from ..models import TestUser, User, UserDetails, UserSocialDetails
+from ..models import  User, UserDetails, UserSocialDetails
 from pydantic import BaseModel
 
 router = APIRouter()
