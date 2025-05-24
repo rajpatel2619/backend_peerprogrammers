@@ -26,7 +26,7 @@ class CourseModeEnum(str, Enum):
 
 class CourseCreate(BaseModel):
     title: str
-    description: str | None = None
+    description: str 
     mode: CourseModeEnum
     creator_ids: list[int]  # Accept multiple creators
 
