@@ -51,8 +51,8 @@ def create_course(payload: CourseCreate, db: Session = Depends(get_db)):
             is_active=True
         )
         db.add(new_course)
-        db.commit()
-        db.refresh(new_course)
+        # db.refresh(new_course)
+        db.flush()  # <-- Flush here to assign new_course.id
 
         # Create course details with default values
         new_course_details = CourseDetails(
@@ -70,6 +70,7 @@ def create_course(payload: CourseCreate, db: Session = Depends(get_db)):
         )
 
         db.add(new_course_details)
+        # db.refresh(new_course_details)
 
       
 
@@ -77,12 +78,12 @@ def create_course(payload: CourseCreate, db: Session = Depends(get_db)):
         for creator in payload.creator_ids:
             course_author = CourseAuthor(
                 course_id=new_course.id,
-                user_id=creator.id,
+                user_id=creator,
                 role="Lead",  # You can customize the role as needed
                 joined_at=datetime.utcnow()
             )
             db.add(course_author)
-
+            # db.refresh(course_author)  # Refresh to get the latest state of the course
         db.commit()
 
         return {
@@ -91,7 +92,7 @@ def create_course(payload: CourseCreate, db: Session = Depends(get_db)):
                 "id": new_course.id,
                 "title": new_course.title,
                 "mode": new_course.mode.value,
-                "creator_ids": [u.id for u in payload.creator_ids],
+                "creator_ids": payload.creator_ids,
             }
         }
     except HTTPException:

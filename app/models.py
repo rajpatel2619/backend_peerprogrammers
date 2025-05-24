@@ -5,8 +5,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
+from .database import Base  # Assuming you have a database.py file with Base defined
 
-Base = declarative_base()
 
 # Enum for course mode
 class CourseMode(enum.Enum):
@@ -15,21 +15,6 @@ class CourseMode(enum.Enum):
     recorded = "Recorded"
     hybrid = "Hybrid"
 
-
-# Association table for many-to-many relationship between Course and User (creators)
-course_creators = Table(
-    'course_creators',
-    Base.metadata,
-    Column('course_id', Integer, ForeignKey('courses.id'), primary_key=True),
-    Column('creator_id', Integer, ForeignKey('users.id'), primary_key=True)
-)
-
-class Item(Base):
-    __tablename__ = "items"
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(255))
-    description = Column(String(255))
 
 
 class User(Base):
@@ -82,12 +67,12 @@ class CourseDetails(Base):
     __tablename__ = "course_details"
 
     id = Column(Integer, primary_key=True, index=True)  # Internal DB ID
-    course_id = Column(String, unique=True, nullable=False, index=True)  # Public-facing course identifier
+    course_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    syllabus_summary = Column(String, nullable=True)  # Short text overview
-    syllabus_path = Column(String, nullable=True)     # Path or URL to full syllabus file/link
+    syllabus_summary = Column(String(255), nullable=True)  # Short text overview
+    syllabus_path = Column(String(255), nullable=True)     # Path or URL to full syllabus file/link
 
-    venue = Column(String, nullable=True)
+    venue = Column(String(255), nullable=True)
 
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
@@ -104,8 +89,8 @@ class Course(Base):
     __tablename__ = "courses"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    description = Column(String, nullable=True)
+    title = Column(String(255), nullable=False)
+    description = Column(String(255), nullable=True)
     mode = Column(Enum(CourseMode), nullable=False, default=CourseMode.live)  # Live / Offline / Recorded / Hybrid
 
     is_active = Column(Boolean, default=True)
@@ -121,5 +106,5 @@ class CourseAuthor(Base):
 
     course_id = Column(Integer, ForeignKey("courses.id"), primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
-    role = Column(String)  # e.g., "Lead", "Co-Instructor"
+    role = Column(String(255))  # e.g., "Lead", "Co-Instructor"
     joined_at = Column(DateTime, default=datetime.utcnow)
