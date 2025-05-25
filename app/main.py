@@ -1,7 +1,7 @@
 
 # ✅ Ensure this import registers all models BEFORE create_all
 from .routers.users import login
-from .routers.courses import course
+from .routers.courses import student_courses, teacher_courses
 from fastapi import FastAPI
 from .connection.database import engine, Base
 from .routers.users import  signup
@@ -22,4 +22,5 @@ app.add_middleware(
 
 app.include_router(login.router)
 app.include_router(signup.router)
-app.include_router(course.router)
+app.include_router(student_courses.router)
+app.include_router(teacher_courses.router)
