@@ -2,32 +2,17 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from ..database import SessionLocal
-from .. import auth
-from ..models import User, UserDetails, UserSocialDetails
+from . import auth
 from datetime import datetime
 from .login import login_user
-from pydantic import BaseModel, EmailStr, Field
 from .login import LoginRequest
+from ...connection.utility import get_db
+from ...schemas.user_schema import *
+from ...models.user_model import User, UserDetails, UserSocialDetails
 
 router = APIRouter()
 # app/schemas.py
 
-
-class SignUpSchema(BaseModel):
-    email: str
-    first_name: str 
-    last_name: str 
-    phone_number: str 
-    password: str 
-    repassword: str
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.post("/signup")
 def signup_user(signup_data: SignUpSchema, db: Session = Depends(get_db)):

@@ -1,23 +1,12 @@
+from . import auth
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from ..database import SessionLocal, Base, engine
-from sqlalchemy import Column, Integer, String
-from .. import crud, schemas, auth
-from ..models import  User, UserDetails, UserSocialDetails
-from pydantic import BaseModel
+from ...connection.utility import get_db
+from ...schemas.user_schema import *
+from ...models.user_model import *
 
 router = APIRouter()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-class LoginRequest(BaseModel):
-    email: str
-    password: str
 
 @router.post("/login")
 def login_user(payload: LoginRequest, db: Session = Depends(get_db)):
