@@ -187,3 +187,50 @@ def get_all_course_details(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching course details"
         )
+
+# ─── Endpoint: Get Course Details By ID ──────────────────────────────
+@router.get("/courses/{course_id}/details")
+def get_course_details_by_id(course_id: int, db: Session = Depends(get_db)):
+    try:
+        course = db.query(Course).filter(Course.id == course_id).first()
+        if not course:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Course not found"
+            )
+        details = db.query(CourseDetails).filter(CourseDetails.course_id == course.id).first()
+        if not details:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Course details not found"
+            )
+        return {
+            "course_id": course.id,
+            "title": course.title,
+            "description": course.description,
+            "mode": course.mode.value if hasattr(course.mode, "value") else str(course.mode),
+            "syllabus_summary": details.syllabus_summary,
+            "syllabus_path": details.syllabus_path,
+            "venue": details.venue,
+            "start_date": details.start_date,
+            "end_date": details.end_date,
+            "start_time": details.start_time,
+            "end_time": details.end_time,
+            "duration_in_hours": details.duration_in_hours,
+            "created_at": details.created_at,
+            "updated_at": details.updated_at,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching course details"
+        )
+
+
+
+
+
+
