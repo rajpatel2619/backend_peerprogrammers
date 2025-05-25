@@ -13,3 +13,20 @@ class SignUpSchema(BaseModel):
     phone_number: str 
     password: str 
     repassword: str
+
+
+class UserUpdateSchema(BaseModel):
+    id: int
+    first_name: str 
+    last_name: str 
+    phone_number: str 
+    address: str 
+    dob: str 
+    facebook: str 
+    github: str 
+    linkedin: str 
+    medium: str 
+    youtube: str 
+    twitter: str 
+    instagram: str 
+    personal_website: str 

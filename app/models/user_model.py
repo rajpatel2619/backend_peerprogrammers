@@ -12,9 +12,6 @@ from ..schemas.course_schema import *
 
 
 
-
-
-
 class User(Base):
     __tablename__ = "users"
 
