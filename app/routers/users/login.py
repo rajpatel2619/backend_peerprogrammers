@@ -34,6 +34,7 @@ def login_user(payload: LoginRequest, db: Session = Depends(get_db)):
             "active": user.active,
             "createdAt": user.createdAt,
             "updatedAt": user.updatedAt,
+            # "isStudent": user_details.isStudent,
             "details": {
                 "firstName": user_details.firstName if user_details else None,
                 "lastName": user_details.lastName if user_details else None,

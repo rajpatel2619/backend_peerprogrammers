@@ -13,6 +13,7 @@ class SignUpSchema(BaseModel):
     phone_number: str 
     password: str 
     repassword: str
+    accountType: str
 
 
 class UserUpdateSchema(BaseModel):

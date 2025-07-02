@@ -5,7 +5,7 @@ from sqlalchemy import inspect
 from datetime import  datetime
 from ...connection.utility import get_db
 from ...schemas.course_schema import *
-from ...models.course_model import Course, CourseDetails, CourseAuthor
+from ...models.course_model import *
 router = APIRouter()
 
 # ─── Endpoint: Create Course ─────────────────────────────────────

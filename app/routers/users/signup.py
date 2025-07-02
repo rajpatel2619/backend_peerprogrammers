@@ -16,6 +16,8 @@ router = APIRouter()
 
 @router.post("/signup")
 def signup_user(signup_data: SignUpSchema, db: Session = Depends(get_db)):
+    # These are the data inside signup_data
+    # email, first_name, last_name, phone_number, password, repassword, accountType
     try:
         if signup_data.password != signup_data.repassword:
             raise HTTPException(status_code=400, detail="Passwords do not match")
@@ -35,6 +37,8 @@ def signup_user(signup_data: SignUpSchema, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_user)
 
+
+
         # UserDetails
         userDetails = UserDetails(
             userId=new_user.id,
@@ -43,7 +47,8 @@ def signup_user(signup_data: SignUpSchema, db: Session = Depends(get_db)):
             phoneNumber=signup_data.phone_number,
             email=signup_data.email,
             createdAt=datetime.utcnow(),
-            updatedAt=datetime.utcnow()
+            updatedAt=datetime.utcnow(),
+            # isStudent=True if signup_data.accountType == "Student" else False
         )
         db.add(userDetails)
 

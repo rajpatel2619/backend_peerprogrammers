@@ -21,7 +21,7 @@ class User(Base):
     createdAt = Column(DateTime, default=datetime.utcnow)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     active = Column(Boolean, default=True)
-
+  
     # Relationship to courses (many-to-many)
     # courses = relationship("Course", secondary=course_creators, back_populates="creators")
 
@@ -39,6 +39,7 @@ class UserDetails(Base):
     dob = Column(Date)
     createdAt = Column(DateTime, default=datetime.utcnow)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # isStudent = Column(Boolean, default=True)
 
 
 class UserSocialDetails(Base):
