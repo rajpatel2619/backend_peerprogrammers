@@ -10,6 +10,59 @@ from ...models.user_model import *
 
 router = APIRouter()
 
+@router.get("/all-courses")
+def get_all_courses(db: Session = Depends(get_db)):
+    try:
+        courses = db.query(IndividualCourse).all()
+        all_courses = []
+
+        for course in courses:
+            course_data = {
+                "id": course.id,
+                "title": course.title,
+                "mode": course.mode,
+                "creatorid": course.creatorid,
+                "is_published": course.is_published,
+                "syllabus_link": course.syllabus_link,
+                "co_mentors": course.co_mentors,
+                "cover_photo": course.cover_photo,
+                "description": course.description,
+                "start_date": str(course.start_date),
+                "end_date": str(course.end_date),
+                "daily_meeting_link": course.daily_meeting_link,
+                "lecture_link": course.lecture_link,
+                "price": course.price,
+                "basic_plan": {
+                    "seats": course.basic_seats,
+                    "price": course.basic_price,
+                    "whatsapp": course.basic_whatsapp,
+                    "meeting_link": course.basic_meeting_link,
+                },
+                "premium_plan": {
+                    "seats": course.premium_seats,
+                    "price": course.premium_price,
+                    "whatsapp": course.premium_whatsapp,
+                    "meeting_link": course.premium_meeting_link,
+                },
+                "ultra_plan": {
+                    "seats": course.ultra_seats,
+                    "price": course.ultra_price,
+                    "whatsapp": course.ultra_whatsapp,
+                    "meeting_link": course.ultra_meeting_link,
+                },
+                "domains": [d.domain for d in course.domain_tags],
+                "creator_ids": [m.user_id for m in course.mentors],
+                "created_at": course.created_at.isoformat(),
+                "updated_at": course.updated_at.isoformat(),
+            }
+            all_courses.append(course_data)
+
+        return {"success": True, "courses": all_courses}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
+
+
 @router.get("/courses/{course_id}")
 def get_course(course_id: int, db: Session = Depends(get_db)):
     course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
