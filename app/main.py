@@ -2,6 +2,7 @@
 # ✅ Ensure this import registers all models BEFORE create_all
 from .routers.users import login, user
 from .routers.courses import student_courses, teacher_courses
+from .routers.resources import resources
 from fastapi import FastAPI
 from .connection.database import engine, Base
 from .routers.users import  signup
@@ -13,6 +14,7 @@ from datetime import datetime
 from .routers.users.login import login_user
 from types import SimpleNamespace
 from .models.course_model import *
+from .models.resource_model import *
 
 app = FastAPI()
 
@@ -40,6 +42,7 @@ app.include_router(signup.router)
 app.include_router(student_courses.router)
 app.include_router(teacher_courses.router)
 app.include_router(user.router)
+app.include_router(resources.router)
 
 
 # print("BEFORE____________________")

@@ -7,7 +7,6 @@ from ...connection.utility import get_db
 from ...schemas.course_schema import *
 from ...models.course_model import *
 from ...models.user_model import *
-from typing import Optional
 
 router = APIRouter()
 
