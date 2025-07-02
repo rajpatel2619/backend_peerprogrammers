@@ -9,6 +9,43 @@ from datetime import datetime
 router = APIRouter()
 
 
+@router.get("/user_details/{user_id}")
+def get_user_details(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_details = db.query(UserDetails).filter(UserDetails.userId == user.id).first()
+    social_details = db.query(UserSocialDetails).filter(UserSocialDetails.userId == user.id).first()
+
+    response = {
+        "id": user.id,
+        "username": user.username,
+        "active": user.active,
+        "createdAt": user.createdAt,
+        "updatedAt": user.updatedAt,
+        "details": {
+            "firstName": user_details.firstName if user_details else None,
+            "lastName": user_details.lastName if user_details else None,
+            "phoneNumber": user_details.phoneNumber if user_details else None,
+            "email": user_details.email if user_details else None,
+            "address": user_details.address if user_details else None,
+            "dob": user_details.dob if user_details else None,
+        },
+        "social": {
+            "facebook": social_details.facebook if social_details else None,
+            "github": social_details.github if social_details else None,
+            "linkedin": social_details.linkedin if social_details else None,
+            "medium": social_details.medium if social_details else None,
+            "youtube": social_details.youtube if social_details else None,
+            "twitter": social_details.twitter if social_details else None,
+            "instagram": social_details.instagram if social_details else None,
+            "personalWebsite": social_details.personalWebsite if social_details else None,
+        },
+    }
+
+    return {"user": response}
+
 @router.put("/update_user")
 def update_user(payload: UserUpdateSchema, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == payload.id).first()
