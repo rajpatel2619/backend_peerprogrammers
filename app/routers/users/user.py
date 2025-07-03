@@ -8,6 +8,28 @@ from datetime import datetime
 
 router = APIRouter()
 
+@router.get("/all_users")
+def get_all_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+
+    user_list = []
+    for user in users:
+        user_details = db.query(UserDetails).filter(UserDetails.userId == user.id).first()
+
+        first_name = user_details.firstName if user_details else None
+        last_name = user_details.lastName if user_details else None
+        email = user_details.email if user_details else None
+        full_name = f"{first_name} {last_name}".strip() if first_name or last_name else None
+
+        user_list.append({
+            "id": user.id,
+            "username": user.username,
+            "email": email,
+            "name": full_name,
+        })
+
+    return {"users": user_list}
+
 
 @router.get("/user_details/{user_id}")
 def get_user_details(user_id: int, db: Session = Depends(get_db)):
