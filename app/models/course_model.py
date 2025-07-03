@@ -118,6 +118,14 @@ class CourseDomain(Base):
     __tablename__ = "course_domains"
 
     course_id = Column(Integer, ForeignKey("individual_course.id"), primary_key=True)
-    domain = Column(String(100), primary_key=True)
+    domain_id = Column(Integer, ForeignKey("domain_tags.id"), primary_key=True)
 
     course = relationship("IndividualCourse", back_populates="domain_tags")
+    domain = relationship("DomainTag")
+
+
+class DomainTag(Base):
+    __tablename__ = "domain_tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False)

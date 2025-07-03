@@ -25,7 +25,8 @@ app = FastAPI()
 #     tables=[
 #         IndividualCourse.__table__,
 #         CourseMentor.__table__,
-#         CourseDomain.__table__
+#         CourseDomain.__table__,
+#         DomainTag.__table__
 #     ]
 # )
 
