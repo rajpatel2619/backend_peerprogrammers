@@ -10,6 +10,72 @@ from ...models.user_model import *
 
 router = APIRouter()
 
+@router.put("/update-course/{user_id}/{course_id}")
+def update_course(user_id: int, course_id: int, payload: dict, db: Session = Depends(get_db)):
+    course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    if course.creatorid != user_id:
+        raise HTTPException(status_code=403, detail="Only creator can update this course")
+
+    # Map payload to course fields dynamically
+    updatable_fields = [
+        "title", "mode", "start_date", "end_date", "description",
+        "syllabus_link", "daily_meeting_link", "lecture_link", "cover_photo",
+        "price", "is_published",
+        "basic_seats", "basic_price", "basic_whatsapp", "basic_meeting_link",
+        "premium_seats", "premium_price", "premium_whatsapp", "premium_meeting_link",
+        "ultra_seats", "ultra_price", "ultra_whatsapp", "ultra_meeting_link",
+        "co_mentors"
+    ]
+
+    for field in updatable_fields:
+        if field in payload:
+            setattr(course, field, payload[field])
+
+    db.commit()
+    db.refresh(course)
+
+    return {
+        "success": True,
+        "message": "Course updated successfully",
+        "course_id": course.id
+    }
+
+
+@router.post("/unpublish-courses/{user_id}/{course_id}")
+def unpublish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
+    course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    if course.creatorid != user_id:
+        raise HTTPException(status_code=403, detail="User is not the creator of this course")
+
+    course.is_published = False
+    db.commit()
+    return {"success": True, "message": "Course unpublished", "course_id": course_id}
+
+
+@router.post("/publish-courses/{user_id}/{course_id}")
+def publish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
+    course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    if course.creatorid != user_id:
+        raise HTTPException(status_code=403, detail="User is not the creator of this course")
+
+    course.is_published = True
+    db.commit()
+    return {"success": True, "message": "Course published", "course_id": course_id}
+
+
+
 @router.get("/all-courses")
 def get_all_courses(db: Session = Depends(get_db)):
     try:
@@ -144,6 +210,7 @@ def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
                 "end_date": str(c.end_date) if c.end_date else None,
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat(),
+                "is_published":c.is_published,
             }
             for c in courses
         ]
@@ -152,7 +219,6 @@ def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
-
 
 
 @router.post("/create-course")
