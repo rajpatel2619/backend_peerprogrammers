@@ -8,7 +8,7 @@ from .connection.database import engine, Base
 from .routers.users import  signup
 from fastapi.middleware.cors import CORSMiddleware
 from .models.testing_mode import *
-from .models.user_model import User
+from .models.user_model import User, TempUser, UserDetails, UserSocialDetails
 from sqlalchemy.orm import Session
 from datetime import datetime
 from .routers.users.login import login_user
@@ -18,7 +18,13 @@ from .models.resource_model import *
 
 app = FastAPI()
 
-# Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine,tables=[
+#     UserDetails.__table__,
+#     UserSocialDetails.__table__,
+# ])
+
+# Base.metadata.drop_all(bind=engine)
+
 
 # Base.metadata.drop_all(
 #     bind=engine,
