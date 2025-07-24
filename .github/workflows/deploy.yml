@@ -1,0 +1,45 @@
+name: Deploy Backend to VPS
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          cat >> ~/.ssh/config <<EOL
+          Host vps
+            HostName 77.37.44.8
+            User root
+            IdentityFile ~/.ssh/id_ed25519
+            StrictHostKeyChecking no
+          EOL
+
+      - name: Deploy to VPS
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == "develop" ]]; then
+            TARGET_DIR="/var/www/peerprogrammers/developement/backend_peerprogrammers"
+          else
+            TARGET_DIR="/var/www/peerprogrammers/production/backend_peerprogrammers"
+          fi
+
+          ssh vps "
+            cd $TARGET_DIR && \
+            git fetch origin && \
+            git reset --hard origin/${GITHUB_REF_NAME} && \
+            npm install && \
+            npm run build && \
+            pm2 restart all || true
+          "
