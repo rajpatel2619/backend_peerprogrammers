@@ -115,178 +115,179 @@ def update_course(user_id: int, course_id: int, payload: dict, db: Session = Dep
 
 
 
-@router.post("/unpublish-courses/{user_id}/{course_id}")
-def unpublish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
-    course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
+# @router.post("/unpublish-courses/{user_id}/{course_id}")
+# def unpublish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
+#     course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
 
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+#     if not course:
+#         raise HTTPException(status_code=404, detail="Course not found")
 
-    if course.creatorid != user_id:
-        raise HTTPException(status_code=403, detail="User is not the creator of this course")
+#     if course.creatorid != user_id:
+#         raise HTTPException(status_code=403, detail="User is not the creator of this course")
 
-    course.is_published = False
-    db.commit()
-    return {"success": True, "message": "Course unpublished", "course_id": course_id}
-
-
-@router.post("/publish-courses/{user_id}/{course_id}")
-def publish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
-    course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
-
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-
-    if course.creatorid != user_id:
-        raise HTTPException(status_code=403, detail="User is not the creator of this course")
-
-    course.is_published = True
-    db.commit()
-    return {"success": True, "message": "Course published", "course_id": course_id}
+#     course.is_published = False
+#     db.commit()
+#     return {"success": True, "message": "Course unpublished", "course_id": course_id}
 
 
-@router.get("/all-courses")
-def get_all_courses(db: Session = Depends(get_db)):
-    try:
-        courses = db.query(IndividualCourse).all()
-        all_courses = []
+# @router.post("/publish-courses/{user_id}/{course_id}")
+# def publish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
+#     course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
 
-        for course in courses:
-            course_data = {
-                "id": course.id,
-                "title": course.title,
-                "mode": course.mode,
-                "creatorid": course.creatorid,
-                "is_published": course.is_published,
-                "syllabus_link": course.syllabus_link,
-                "co_mentors": course.co_mentors,
-                "cover_photo": course.cover_photo,
-                "description": course.description,
-                "start_date": str(course.start_date),
-                "end_date": str(course.end_date),
-                "daily_meeting_link": course.daily_meeting_link,
-                "lecture_link": course.lecture_link,
-                "price": course.price,
-                "basic_plan": {
-                    "seats": course.basic_seats,
-                    "price": course.basic_price,
-                    "whatsapp": course.basic_whatsapp,
-                    "meeting_link": course.basic_meeting_link,
-                },
-                "premium_plan": {
-                    "seats": course.premium_seats,
-                    "price": course.premium_price,
-                    "whatsapp": course.premium_whatsapp,
-                    "meeting_link": course.premium_meeting_link,
-                },
-                "ultra_plan": {
-                    "seats": course.ultra_seats,
-                    "price": course.ultra_price,
-                    "whatsapp": course.ultra_whatsapp,
-                    "meeting_link": course.ultra_meeting_link,
-                },
-                "domains": [d.domain for d in course.domain_tags],
-                "creator_ids": [m.user_id for m in course.mentors],
-                "created_at": course.created_at.isoformat(),
-                "updated_at": course.updated_at.isoformat(),
-            }
-            all_courses.append(course_data)
+#     if not course:
+#         raise HTTPException(status_code=404, detail="Course not found")
 
-        return {"success": True, "courses": all_courses}
+#     if course.creatorid != user_id:
+#         raise HTTPException(status_code=403, detail="User is not the creator of this course")
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
+#     course.is_published = True
+#     db.commit()
+#     return {"success": True, "message": "Course published", "course_id": course_id}
 
-@router.get("/courses/{course_id}")
-def get_course(course_id: int, db: Session = Depends(get_db)):
-    course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
 
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+# @router.get("/all-courses")
+# def get_all_courses(db: Session = Depends(get_db)):
+#     try:
+#         courses = db.query(IndividualCourse).all()
+#         all_courses = []
 
-    return {
-        "id": course.id,
-        "title": course.title,
-        "mode": course.mode,
-        "creatorid": course.creatorid,
-        "is_published": course.is_published,
-        "syllabus_link": course.syllabus_link,
-        "co_mentors": course.co_mentors,
-        "cover_photo": course.cover_photo,
-        "description": course.description,
-        "start_date": str(course.start_date),
-        "end_date": str(course.end_date),
-        "daily_meeting_link": course.daily_meeting_link,
-        "lecture_link": course.lecture_link,
-        "price": course.price,
-        "basic_plan": {
-            "seats": course.basic_seats,
-            "price": course.basic_price,
-            "whatsapp": course.basic_whatsapp,
-            "meeting_link": course.basic_meeting_link,
-        },
-        "premium_plan": {
-            "seats": course.premium_seats,
-            "price": course.premium_price,
-            "whatsapp": course.premium_whatsapp,
-            "meeting_link": course.premium_meeting_link,
-        },
-        "ultra_plan": {
-            "seats": course.ultra_seats,
-            "price": course.ultra_price,
-            "whatsapp": course.ultra_whatsapp,
-            "meeting_link": course.ultra_meeting_link,
-        },
-        "domains": [d.domain.id for d in course.domain_tags],
-        "creator_ids": [a.user_id for a in course.mentors],
-        "created_at": course.created_at.isoformat(),
-        "updated_at": course.updated_at.isoformat(),
-    }
+#         for course in courses:
+#             course_data = {
+#                 "id": course.id,
+#                 "title": course.title,
+#                 "mode": course.mode,
+#                 "creatorid": course.creatorid,
+#                 "is_published": course.is_published,
+#                 "syllabus_link": course.syllabus_link,
+#                 "co_mentors": course.co_mentors,
+#                 "cover_photo": course.cover_photo,
+#                 "description": course.description,
+#                 "start_date": str(course.start_date),
+#                 "end_date": str(course.end_date),
+#                 "daily_meeting_link": course.daily_meeting_link,
+#                 "lecture_link": course.lecture_link,
+#                 "price": course.price,
+#                 "basic_plan": {
+#                     "seats": course.basic_seats,
+#                     "price": course.basic_price,
+#                     "whatsapp": course.basic_whatsapp,
+#                     "meeting_link": course.basic_meeting_link,
+#                 },
+#                 "premium_plan": {
+#                     "seats": course.premium_seats,
+#                     "price": course.premium_price,
+#                     "whatsapp": course.premium_whatsapp,
+#                     "meeting_link": course.premium_meeting_link,
+#                 },
+#                 "ultra_plan": {
+#                     "seats": course.ultra_seats,
+#                     "price": course.ultra_price,
+#                     "whatsapp": course.ultra_whatsapp,
+#                     "meeting_link": course.ultra_meeting_link,
+#                 },
+#                 "domains": [d.domain for d in course.domain_tags],
+#                 "creator_ids": [m.user_id for m in course.mentors],
+#                 "created_at": course.created_at.isoformat(),
+#                 "updated_at": course.updated_at.isoformat(),
+#             }
+#             all_courses.append(course_data)
 
-@router.get("/courses/by-user/{user_id}")
-def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
-    try:
-        # Collect all course IDs where user is a creator or mentor
-        creator_course_ids = (
-            db.query(IndividualCourse.id)
-            .filter(IndividualCourse.creatorid == user_id)
-        )
+#         return {"success": True, "courses": all_courses}
 
-        mentor_course_ids = (
-            db.query(CourseMentor.course_id)
-            .filter(CourseMentor.user_id == user_id)
-        )
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
 
-        # Merge and deduplicate using set union
-        all_course_ids = {id for (id,) in creator_course_ids.union(mentor_course_ids).all()}
+# @router.get("/courses/{course_id}")
+# def get_course(course_id: int, db: Session = Depends(get_db)):
+#     course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
 
-        # Fetch actual course objects
-        courses = (
-            db.query(IndividualCourse)
-            .filter(IndividualCourse.id.in_(all_course_ids))
-            .all()
-        )
+#     if not course:
+#         raise HTTPException(status_code=404, detail="Course not found")
 
-        result = [
-            {
-                "id": c.id,
-                "title": c.title,
-                "mode": c.mode,
-                "creatorid": c.creatorid,
-                "description": c.description,
-                "start_date": str(c.start_date) if c.start_date else None,
-                "end_date": str(c.end_date) if c.end_date else None,
-                "created_at": c.created_at.isoformat(),
-                "updated_at": c.updated_at.isoformat(),
-                "is_published":c.is_published,
-            }
-            for c in courses
-        ]
+#     return {
+#         "id": course.id,
+#         "title": course.title,
+#         "mode": course.mode,
+#         "creatorid": course.creatorid,
+#         "is_published": course.is_published,
+#         "syllabus_link": course.syllabus_link,
+#         "co_mentors": course.co_mentors,
+#         "cover_photo": course.cover_photo,
+#         "description": course.description,
+#         "start_date": str(course.start_date),
+#         "end_date": str(course.end_date),
+#         "daily_meeting_link": course.daily_meeting_link,
+#         "lecture_link": course.lecture_link,
+#         "price": course.price,
+#         "basic_plan": {
+#             "seats": course.basic_seats,
+#             "price": course.basic_price,
+#             "whatsapp": course.basic_whatsapp,
+#             "meeting_link": course.basic_meeting_link,
+#         },
+#         "premium_plan": {
+#             "seats": course.premium_seats,
+#             "price": course.premium_price,
+#             "whatsapp": course.premium_whatsapp,
+#             "meeting_link": course.premium_meeting_link,
+#         },
+#         "ultra_plan": {
+#             "seats": course.ultra_seats,
+#             "price": course.ultra_price,
+#             "whatsapp": course.ultra_whatsapp,
+#             "meeting_link": course.ultra_meeting_link,
+#         },
+#         "domains": [d.domain.id for d in course.domain_tags],
+#         "creator_ids": [a.user_id for a in course.mentors],
+#         "created_at": course.created_at.isoformat(),
+#         "updated_at": course.updated_at.isoformat(),
+#     }
 
-        return {"success": True, "courses": result}
+# @router.get("/courses/by-user/{user_id}")
+# def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
+#     try:
+#         # Collect all course IDs where user is a creator or mentor
+#         creator_course_ids = (
+#             db.query(IndividualCourse.id)
+#             .filter(IndividualCourse.creatorid == user_id)
+#         )
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
+#         mentor_course_ids = (
+#             db.query(CourseMentor.course_id)
+#             .filter(CourseMentor.user_id == user_id)
+#         )
+
+#         # Merge and deduplicate using set union
+#         all_course_ids = {id for (id,) in creator_course_ids.union(mentor_course_ids).all()}
+
+#         # Fetch actual course objects
+#         courses = (
+#             db.query(IndividualCourse)
+#             .filter(IndividualCourse.id.in_(all_course_ids))
+#             .all()
+#         )
+
+#         result = [
+#             {
+#                 "id": c.id,
+#                 "title": c.title,
+#                 "mode": c.mode,
+#                 "creatorid": c.creatorid,
+#                 "description": c.description,
+#                 "start_date": str(c.start_date) if c.start_date else None,
+#                 "end_date": str(c.end_date) if c.end_date else None,
+#                 "created_at": c.created_at.isoformat(),
+#                 "updated_at": c.updated_at.isoformat(),
+#                 "is_published":c.is_published,
+#             }
+#             for c in courses
+#         ]
+
+#         return {"success": True, "courses": result}
+
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
+
 
 @router.post("/create-course")
 def create_course(payload: dict,file: UploadFile = File(...),  db: Session = Depends(get_db)):
