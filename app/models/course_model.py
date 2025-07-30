@@ -9,7 +9,6 @@ from ..schemas.course_schema import CourseMode
 
 
 
-
 class Courses(Base):
     __tablename__ = "courses"
 

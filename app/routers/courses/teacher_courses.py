@@ -1,71 +1,116 @@
+import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from datetime import datetime
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from datetime import datetime
-from sqlalchemy import inspect
-from datetime import datetime
+from dotenv import load_dotenv
 from ...connection.utility import get_db
 from ...schemas.course_schema import *
 from ...models.course_model import *
 from ...models.user_model import *
-import os
-from dotenv import load_dotenv
 
-
+# Initialize Router and Environment
 router = APIRouter()
-
-
-
-load_dotenv()  # Load from .env
-
+load_dotenv()
 UPLOAD_DIR = os.getenv("UPLOAD_DIR")
-
-
-# Make sure the directory exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-
-@router.post("/upload-course-file/")
-def upload_course_file(file: UploadFile = File(...), userId: int = None):
-    if not userId:
-        raise HTTPException(status_code=400, detail="userId is required")
-
-    # Extract only the file name (no directories)
-    original_filename = os.path.basename(file.filename)
-
-    # Create unique filename
-    timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
-    filename = f"{userId}_{timestamp}_{original_filename}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
-
-    # Save the file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    public_url = f"https://localhost:8283/uploads/{filename}"
-
-    return {
-        "message": "File uploaded successfully",
-        "url": public_url
-    }
-
-
-@router.delete("/delete-course-file/")
-def delete_course_file(filename: str):
-    file_path = os.path.join(UPLOAD_DIR, filename)
-
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
-
+# Create Course Endpoint
+@router.post("/create-course")
+def create_course(
+    userId: int = Form(...),
+    title: str = Form(...),
+    mode: str = Form(...),
+    seats: int = Form(...),
+    chat_link: str = Form(...),
+    start_date: Optional[str] = Form(None),
+    end_date: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    syllabus_content: Optional[str] = Form(None),
+    price: Optional[float] = Form(None),
+    is_published: Optional[bool] = Form(False),
+    is_extra_registration: Optional[bool] = Form(False),
+    co_mentor_ids: Optional[str] = Form(""),
+    creator_ids: Optional[str] = Form(""),
+    domain_ids: Optional[str] = Form(""),
+    cover_photo: UploadFile = File(...),
+    syllabus_file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
     try:
-        os.remove(file_path)
-        return {"message": "File deleted successfully", "filename": filename}
+        timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+        cover_filename = f"{userId}_{timestamp}_{os.path.basename(cover_photo.filename)}"
+        syllabus_filename = f"{userId}_{timestamp}_{os.path.basename(syllabus_file.filename)}"
+
+        cover_path = os.path.join(UPLOAD_DIR, cover_filename)
+        syllabus_path = os.path.join(UPLOAD_DIR, syllabus_filename)
+
+        with open(cover_path, "wb") as f:
+            shutil.copyfileobj(cover_photo.file, f)
+        with open(syllabus_path, "wb") as f:
+            shutil.copyfileobj(syllabus_file.file, f)
+
+        cover_url = f"https://localhost:8283/uploads/{cover_filename}"
+        syllabus_url = f"https://localhost:8283/uploads/{syllabus_filename}"
+
+        course = Courses(
+            creatorid=userId,
+            title=title,
+            mode=mode,
+            seats=seats,
+            chatLink=chat_link,
+            start_date=start_date,
+            end_date=end_date,
+            description=description,
+            syllausContent=syllabus_content,
+            syllabus_link=syllabus_url,
+            cover_photo=cover_url,
+            lecture_link=None,
+            price=price,
+            is_published=is_published,
+            isExtraRegistration=is_extra_registration,
+            co_mentors=",".join(co_mentor_ids.split(",")) if co_mentor_ids else ""
+        )
+
+        db.add(course)
+        db.flush()
+
+        for uid in creator_ids.split(","):
+            if uid.strip():
+                db.add(CourseMentor(course_id=course.id, user_id=int(uid), role="Mentor"))
+
+        for domain_id in domain_ids.split(","):
+            if domain_id.strip():
+                db.add(CourseDomain(course_id=course.id, domain_id=int(domain_id)))
+
+        db.commit()
+        db.refresh(course)
+
+        return {
+            "success": True,
+            "message": "Course created",
+            "course": {
+                "id": course.id,
+                "cover_photo": cover_url,
+                "syllabus_link": syllabus_url
+            }
+        }
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Course creation failed: {str(e)}")
 
-
+# Update Course Endpoint
 @router.put("/update-course/{user_id}/{course_id}")
-def update_course(user_id: int, course_id: int, payload: dict, db: Session = Depends(get_db)):
+def update_course(
+    user_id: int,
+    course_id: int,
+    payload: dict,
+    cover_photo: Optional[UploadFile] = File(None),
+    syllabus_file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
     course = db.query(Courses).filter(Courses.id == course_id).first()
 
     if not course:
@@ -74,31 +119,42 @@ def update_course(user_id: int, course_id: int, payload: dict, db: Session = Dep
     if course.creatorid != user_id:
         raise HTTPException(status_code=403, detail="Only the creator can update this course")
 
-    # Fields allowed to be updated
     updatable_fields = [
         "title", "mode", "start_date", "end_date", "description",
         "syllabus_link", "syllausContent", "lecture_link", "cover_photo",
         "price", "seats", "chatLink", "co_mentors"
     ]
 
-    # Update course fields
     for field in updatable_fields:
         if field in payload:
             setattr(course, field, payload[field])
-            
+
     course.isVerified = False
 
-    # Handle co_mentors from creator_ids (if provided)
+    if cover_photo:
+        timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+        cover_filename = f"{user_id}_{timestamp}_{os.path.basename(cover_photo.filename)}"
+        cover_path = os.path.join(UPLOAD_DIR, cover_filename)
+        with open(cover_path, "wb") as f:
+            shutil.copyfileobj(cover_photo.file, f)
+        course.cover_photo = f"https://localhost:8283/uploads/{cover_filename}"
+
+    if syllabus_file:
+        timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+        syllabus_filename = f"{user_id}_{timestamp}_{os.path.basename(syllabus_file.filename)}"
+        syllabus_path = os.path.join(UPLOAD_DIR, syllabus_filename)
+        with open(syllabus_path, "wb") as f:
+            shutil.copyfileobj(syllabus_file.file, f)
+        course.syllabus_link = f"https://localhost:8283/uploads/{syllabus_filename}"
+
     if "creator_ids" in payload:
         co_mentors = [uid for uid in payload["creator_ids"] if uid != user_id]
         course.co_mentors = ",".join(str(uid) for uid in co_mentors)
 
-        # Update CourseMentor entries
         db.query(CourseMentor).filter_by(course_id=course.id).delete()
         for mentor_id in payload["creator_ids"]:
             db.add(CourseMentor(course_id=course.id, user_id=mentor_id, role="Mentor"))
 
-    # Handle domain updates
     if "domain_ids" in payload:
         db.query(CourseDomain).filter_by(course_id=course.id).delete()
         for domain_id in payload["domain_ids"]:
@@ -110,272 +166,128 @@ def update_course(user_id: int, course_id: int, payload: dict, db: Session = Dep
     return {
         "success": True,
         "message": "Course updated successfully",
-        "course_id": course
+        "course_id": course.id
     }
 
 
 
-# @router.post("/unpublish-courses/{user_id}/{course_id}")
-# def unpublish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
-#     course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
+# Unpublish a Course
+@router.post("/unpublish-courses/{user_id}/{course_id}")
+def unpublish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
+    course = db.query(Courses).filter(Courses.id == course_id).first()
 
-#     if not course:
-#         raise HTTPException(status_code=404, detail="Course not found")
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
 
-#     if course.creatorid != user_id:
-#         raise HTTPException(status_code=403, detail="User is not the creator of this course")
+    if course.creatorid != user_id:
+        raise HTTPException(status_code=403, detail="User is not the creator of this course")
 
-#     course.is_published = False
-#     db.commit()
-#     return {"success": True, "message": "Course unpublished", "course_id": course_id}
+    course.is_published = False
+    db.commit()
 
+    return {
+        "success": True,
+        "message": "Course unpublished successfully",
+        "course_id": course.id
+    }
 
-# @router.post("/publish-courses/{user_id}/{course_id}")
-# def publish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
-#     course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
+# Publish a Course
+@router.post("/publish-courses/{user_id}/{course_id}")
+def publish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
+    course = db.query(Courses).filter(Courses.id == course_id).first()
 
-#     if not course:
-#         raise HTTPException(status_code=404, detail="Course not found")
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
 
-#     if course.creatorid != user_id:
-#         raise HTTPException(status_code=403, detail="User is not the creator of this course")
+    if course.creatorid != user_id:
+        raise HTTPException(status_code=403, detail="User is not the creator of this course")
 
-#     course.is_published = True
-#     db.commit()
-#     return {"success": True, "message": "Course published", "course_id": course_id}
+    course.is_published = True
+    db.commit()
 
-
-# @router.get("/all-courses")
-# def get_all_courses(db: Session = Depends(get_db)):
-#     try:
-#         courses = db.query(IndividualCourse).all()
-#         all_courses = []
-
-#         for course in courses:
-#             course_data = {
-#                 "id": course.id,
-#                 "title": course.title,
-#                 "mode": course.mode,
-#                 "creatorid": course.creatorid,
-#                 "is_published": course.is_published,
-#                 "syllabus_link": course.syllabus_link,
-#                 "co_mentors": course.co_mentors,
-#                 "cover_photo": course.cover_photo,
-#                 "description": course.description,
-#                 "start_date": str(course.start_date),
-#                 "end_date": str(course.end_date),
-#                 "daily_meeting_link": course.daily_meeting_link,
-#                 "lecture_link": course.lecture_link,
-#                 "price": course.price,
-#                 "basic_plan": {
-#                     "seats": course.basic_seats,
-#                     "price": course.basic_price,
-#                     "whatsapp": course.basic_whatsapp,
-#                     "meeting_link": course.basic_meeting_link,
-#                 },
-#                 "premium_plan": {
-#                     "seats": course.premium_seats,
-#                     "price": course.premium_price,
-#                     "whatsapp": course.premium_whatsapp,
-#                     "meeting_link": course.premium_meeting_link,
-#                 },
-#                 "ultra_plan": {
-#                     "seats": course.ultra_seats,
-#                     "price": course.ultra_price,
-#                     "whatsapp": course.ultra_whatsapp,
-#                     "meeting_link": course.ultra_meeting_link,
-#                 },
-#                 "domains": [d.domain for d in course.domain_tags],
-#                 "creator_ids": [m.user_id for m in course.mentors],
-#                 "created_at": course.created_at.isoformat(),
-#                 "updated_at": course.updated_at.isoformat(),
-#             }
-#             all_courses.append(course_data)
-
-#         return {"success": True, "courses": all_courses}
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
-
-# @router.get("/courses/{course_id}")
-# def get_course(course_id: int, db: Session = Depends(get_db)):
-#     course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
-
-#     if not course:
-#         raise HTTPException(status_code=404, detail="Course not found")
-
-#     return {
-#         "id": course.id,
-#         "title": course.title,
-#         "mode": course.mode,
-#         "creatorid": course.creatorid,
-#         "is_published": course.is_published,
-#         "syllabus_link": course.syllabus_link,
-#         "co_mentors": course.co_mentors,
-#         "cover_photo": course.cover_photo,
-#         "description": course.description,
-#         "start_date": str(course.start_date),
-#         "end_date": str(course.end_date),
-#         "daily_meeting_link": course.daily_meeting_link,
-#         "lecture_link": course.lecture_link,
-#         "price": course.price,
-#         "basic_plan": {
-#             "seats": course.basic_seats,
-#             "price": course.basic_price,
-#             "whatsapp": course.basic_whatsapp,
-#             "meeting_link": course.basic_meeting_link,
-#         },
-#         "premium_plan": {
-#             "seats": course.premium_seats,
-#             "price": course.premium_price,
-#             "whatsapp": course.premium_whatsapp,
-#             "meeting_link": course.premium_meeting_link,
-#         },
-#         "ultra_plan": {
-#             "seats": course.ultra_seats,
-#             "price": course.ultra_price,
-#             "whatsapp": course.ultra_whatsapp,
-#             "meeting_link": course.ultra_meeting_link,
-#         },
-#         "domains": [d.domain.id for d in course.domain_tags],
-#         "creator_ids": [a.user_id for a in course.mentors],
-#         "created_at": course.created_at.isoformat(),
-#         "updated_at": course.updated_at.isoformat(),
-#     }
-
-# @router.get("/courses/by-user/{user_id}")
-# def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
-#     try:
-#         # Collect all course IDs where user is a creator or mentor
-#         creator_course_ids = (
-#             db.query(IndividualCourse.id)
-#             .filter(IndividualCourse.creatorid == user_id)
-#         )
-
-#         mentor_course_ids = (
-#             db.query(CourseMentor.course_id)
-#             .filter(CourseMentor.user_id == user_id)
-#         )
-
-#         # Merge and deduplicate using set union
-#         all_course_ids = {id for (id,) in creator_course_ids.union(mentor_course_ids).all()}
-
-#         # Fetch actual course objects
-#         courses = (
-#             db.query(IndividualCourse)
-#             .filter(IndividualCourse.id.in_(all_course_ids))
-#             .all()
-#         )
-
-#         result = [
-#             {
-#                 "id": c.id,
-#                 "title": c.title,
-#                 "mode": c.mode,
-#                 "creatorid": c.creatorid,
-#                 "description": c.description,
-#                 "start_date": str(c.start_date) if c.start_date else None,
-#                 "end_date": str(c.end_date) if c.end_date else None,
-#                 "created_at": c.created_at.isoformat(),
-#                 "updated_at": c.updated_at.isoformat(),
-#                 "is_published":c.is_published,
-#             }
-#             for c in courses
-#         ]
-
-#         return {"success": True, "courses": result}
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
+    return {
+        "success": True,
+        "message": "Course published successfully",
+        "course_id": course.id
+    }
 
 
-@router.post("/create-course")
-def create_course(payload: dict,file: UploadFile = File(...),  db: Session = Depends(get_db)):
+
+@router.get("/all-courses")
+def get_all_courses(db: Session = Depends(get_db)):
     try:
-        # Prepare co_mentors string (optional)
-        co_mentors_str = ",".join(str(uid) for uid in payload.get("co_mentor_ids", [])).strip(",")
+        courses = db.query(Courses).all()
+        result = []
 
-        course = Courses(
-            creatorid=payload["userId"],
-            title=payload["title"],
-            mode=payload["mode"],
-            start_date=payload.get("start_date"),
-            end_date=payload.get("end_date"),
-            co_mentors=co_mentors_str,
-            description=payload.get("description"),
-            syllabus_link=payload.get("syllabus_link"),
-            syllausContent=payload.get("syllabus_content"),
-            is_published=payload.get("is_published", False),
-            cover_photo=payload.get("cover_photo"),
-            lecture_link=payload.get("lecture_link"),
-            seats=payload["seats"],
-            chatLink=payload["chat_link"],
-            price=payload.get("price"),
-            isExtraRegistration=payload.get("is_extra_registration", False),
-        )
-
-        db.add(course)
-        db.flush()  # To get course.id before commit
-
-        # Save mentors
-        for uid in payload.get("creator_ids", []):
-            user = db.query(User).filter_by(id=uid).first()
-            if not user:
-                raise HTTPException(status_code=400, detail=f"User ID {uid} does not exist")
-
-            db.add(CourseMentor(course_id=course.id, user_id=uid, role="Mentor"))
-
-        # Save domain tags
-        for domain_id in payload.get("domain_ids", []):
-            domain = db.query(DomainTag).filter_by(id=domain_id).first()
-            if not domain:
-                raise HTTPException(status_code=400, detail=f"Domain ID {domain_id} not found")
-
-            db.add(CourseDomain(course_id=course.id, domain_id=domain_id))
-
-        db.commit()
-        db.refresh(course)
+        for course in courses:
+            result.append({
+                "id": course.id,
+                "title": course.title,
+                "mode": course.mode,
+                "creatorid": course.creatorid,
+                "description": course.description,
+                "cover_photo": course.cover_photo,
+                "syllabus_link": course.syllabus_link,
+                "co_mentors": course.co_mentors,
+                "lecture_link": course.lecture_link,
+                "chatLink": course.chatLink,
+                "price": course.price,
+                "seats": course.seats,
+                "start_date": str(course.start_date) if course.start_date else None,
+                "end_date": str(course.end_date) if course.end_date else None,
+                "is_published": course.is_published,
+                "created_at": course.created_at.isoformat(),
+                "updated_at": course.updated_at.isoformat(),
+                "creator_ids": [m.user_id for m in course.mentors],
+                "domains": [d.domain.name for d in course.domain_tags],
+            })
 
         return {
             "success": True,
-            "course": course
+            "courses": result
         }
 
     except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Course creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
 
 
-## DOMAIN RELATED ###########################################
+@router.get("/courses/by-user/{user_id}")
+def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
+    try:
+        creator_course_ids = db.query(Courses.id).filter(Courses.creatorid == user_id)
+        mentor_course_ids = db.query(CourseMentor.course_id).filter(CourseMentor.user_id == user_id)
 
-@router.post("/add-domain-tag")
-def add_domain_tag(payload: dict, db: Session = Depends(get_db)):
-    name = payload["name"]  
-    existing = db.query(DomainTag).filter(DomainTag.name == name).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Domain tag already exists")
+        all_ids = {cid for (cid,) in creator_course_ids.union(mentor_course_ids).all()}
+        courses = db.query(Courses).filter(Courses.id.in_(all_ids)).all()
 
-    new_tag = DomainTag(name=name)
-    db.add(new_tag)
-    db.commit()
-    db.refresh(new_tag)
+        result = []
+        for c in courses:
+            result.append({
+                "id": c.id,
+                "title": c.title,
+                "mode": c.mode,
+                "creatorid": c.creatorid,
+                "description": c.description,
+                "cover_photo": c.cover_photo,
+                "syllabus_link": c.syllabus_link,
+                "co_mentors": c.co_mentors,
+                "lecture_link": c.lecture_link,
+                "chatLink": c.chatLink,
+                "price": c.price,
+                "seats": c.seats,
+                "start_date": str(c.start_date) if c.start_date else None,
+                "end_date": str(c.end_date) if c.end_date else None,
+                "is_published": c.is_published,
+                "created_at": c.created_at.isoformat(),
+                "updated_at": c.updated_at.isoformat(),
+                "creator_ids": [m.user_id for m in c.mentors],
+                "domains": [d.domain.name for d in c.domain_tags],
+            })
 
-    return {
-        "success": True,
-        "message": "Domain tag added successfully",
-        "tag_id": new_tag.id,
-        "tag_name": new_tag.name
-    }
+        return {
+            "success": True,
+            "courses": result
+        }
 
-
-@router.get("/all-domain-tags")
-def get_all_domain_tags(db: Session = Depends(get_db)):
-    tags = db.query(DomainTag).order_by(DomainTag.name).all()
-
-    return {
-        "success": True,
-        "total": len(tags),
-        "tags": [{"id": tag.id, "name": tag.name} for tag in tags]
-    }
-
-
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
