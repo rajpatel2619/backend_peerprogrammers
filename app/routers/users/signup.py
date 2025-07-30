@@ -215,7 +215,14 @@ def verify_otp(data: dict, db: Session = Depends(get_db)):
 
         return {
             "message": "OTP verified successfully. User created.",
-            "userId": new_user.id
+            "user": {
+                "id": new_user.id,
+                "username": new_user.username,
+                "preferredAccount": new_user.preferredAccount,
+                "active": new_user.active,
+                "createdAt": new_user.createdAt,
+                "updatedAt": new_user.updatedAt
+            }
         }
 
     except HTTPException:
@@ -296,10 +303,10 @@ def verify_forget_password(data: dict, db: Session = Depends(get_db)):
         if not forget_entry:
             raise HTTPException(status_code=404, detail="OTP not found for this email")
 
-        if forget_entry.otp != otp_code:
+        if forget_entry.otp != otp_code: 
             raise HTTPException(status_code=400, detail="Invalid OTP")
 
-        if datetime.utcnow() > forget_entry.expires_at:
+        if datetime.utcnow() > forget_entry.expiredAt:
             raise HTTPException(status_code=400, detail="OTP has expired")
 
         # Delete OTP entry
