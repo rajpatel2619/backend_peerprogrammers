@@ -14,6 +14,7 @@ from ...models.user_model import *
 router = APIRouter()
 load_dotenv()
 UPLOAD_DIR = os.getenv("UPLOAD_DIR")
+DOWN_DIR = os.getenv("DOWN_DIR")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Create Course Endpoint
@@ -51,8 +52,8 @@ def create_course(
         with open(syllabus_path, "wb") as f:
             shutil.copyfileobj(syllabus_file.file, f)
 
-        cover_url = f"https://localhost:8283/uploads/{cover_filename}"
-        syllabus_url = f"https://localhost:8283/uploads/{syllabus_filename}"
+        cover_url = f"{DOWN_DIR}/uploads/{cover_filename}"
+        syllabus_url = f"{DOWN_DIR}/uploads/{syllabus_filename}"
 
         course = Courses(
             creatorid=userId,
@@ -137,7 +138,7 @@ def update_course(
         cover_path = os.path.join(UPLOAD_DIR, cover_filename)
         with open(cover_path, "wb") as f:
             shutil.copyfileobj(cover_photo.file, f)
-        course.cover_photo = f"https://localhost:8283/uploads/{cover_filename}"
+        course.cover_photo = f"{DOWN_DIR}/uploads/{cover_filename}"
 
     if syllabus_file:
         timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
@@ -145,7 +146,7 @@ def update_course(
         syllabus_path = os.path.join(UPLOAD_DIR, syllabus_filename)
         with open(syllabus_path, "wb") as f:
             shutil.copyfileobj(syllabus_file.file, f)
-        course.syllabus_link = f"https://localhost:8283/uploads/{syllabus_filename}"
+        course.syllabus_link = f"{DOWN_DIR}/uploads/{syllabus_filename}"
 
     if "creator_ids" in payload:
         co_mentors = [uid for uid in payload["creator_ids"] if uid != user_id]
@@ -291,3 +292,34 @@ def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
+
+
+@router.post("/add-domain-tag")
+def add_domain_tag(payload: dict, db: Session = Depends(get_db)):
+    name = payload["name"]
+    existing = db.query(DomainTag).filter(DomainTag.name == name).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Domain tag already exists")
+
+    new_tag = DomainTag(name=name)
+    db.add(new_tag)
+    db.commit()
+    db.refresh(new_tag)
+
+    return {
+        "success": True,
+        "message": "Domain tag added successfully",
+        "tag_id": new_tag.id,
+        "tag_name": new_tag.name
+    }
+
+
+@router.get("/all-domain-tags")
+def get_all_domain_tags(db: Session = Depends(get_db)):
+    tags = db.query(DomainTag).order_by(DomainTag.name).all()
+    return {
+        "success": True,
+        "total": len(tags),
+        "tags": [{"id": tag.id, "name": tag.name} for tag in tags]
+    }
