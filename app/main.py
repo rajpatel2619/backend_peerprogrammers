@@ -26,9 +26,13 @@ load_dotenv()  # Load from .env
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR")
 
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 
-app.mount("/uploads", StaticFiles(directory="/home/thearp/Desktop/tms/backend_peerprogrammers/app/uploads"), name="uploads")
+BASE_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = BASE_DIR / "uploads"
 
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 # Base.metadata.drop_all(bind=engine,tables=[
 #     Courses.__table__,
 # ])
