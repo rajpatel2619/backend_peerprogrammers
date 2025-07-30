@@ -109,17 +109,23 @@ def create_course(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Course creation failed: {str(e)}")
 
+from fastapi import Form
+import json
 
-# --- Update Course Endpoint ---
 @router.put("/update-course/{user_id}/{course_id}")
 def update_course(
     user_id: int,
     course_id: int,
-    payload: dict,
+    payload: str = Form(...),  # accept as string
     cover_photo: Optional[UploadFile] = File(None),
     syllabus_file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
+    try:
+        payload = json.loads(payload)  # parse JSON string to dict
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON in payload")
+        
     course = db.query(Courses).filter(Courses.id == course_id).first()
 
     if not course:
@@ -311,3 +317,49 @@ def get_all_domain_tags(db: Session = Depends(get_db)):
         "total": len(tags),
         "tags": [{"id": tag.id, "name": tag.name} for tag in tags]
     }
+
+
+# --- Get Single Course Detail by User ID and Course ID ---
+@router.get("/course-detail/{user_id}/{course_id}")
+def get_course_detail(user_id: int, course_id: int, db: Session = Depends(get_db)):
+    try:
+        # Check if the user is a creator or a co-mentor
+        course = db.query(Courses).filter(Courses.id == course_id).first()
+
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+
+        is_creator = course.creatorid == user_id
+        is_mentor = db.query(CourseMentor).filter_by(course_id=course_id, user_id=user_id).first() is not None
+
+        if not is_creator and not is_mentor:
+            raise HTTPException(status_code=403, detail="Access denied: user is not associated with this course")
+
+        return {
+            "success": True,
+            "course": {
+                "id": course.id,
+                "title": course.title,
+                "mode": course.mode,
+                "creatorid": course.creatorid,
+                "description": course.description,
+                "cover_photo": course.cover_photo,
+                "syllabus_link": course.syllabus_link,
+                "co_mentors": course.co_mentors,
+                "lecture_link": course.lecture_link,
+                "chatLink": course.chatLink,
+                "price": course.price,
+                "seats": course.seats,
+                "start_date": str(course.start_date) if course.start_date else None,
+                "end_date": str(course.end_date) if course.end_date else None,
+                "is_published": course.is_published,
+                "created_at": course.created_at.isoformat(),
+                "updated_at": course.updated_at.isoformat(),
+                "creator_ids": [m.user_id for m in course.mentors],
+                "domains": [d.domain.name for d in course.domain_tags],
+                "domain_ids": [d.domain_id for d in course.domain_tags],
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch course detail: {str(e)}")
