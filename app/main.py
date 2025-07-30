@@ -1,71 +1,51 @@
-
-# ✅ Ensure this import registers all models BEFORE create_all
-from .routers.users import login, user
-from .routers.courses import student_courses, teacher_courses
-from .routers.resources import resources
 from fastapi import FastAPI
-from .connection.database import engine, Base
-from .routers.users import  signup
 from fastapi.middleware.cors import CORSMiddleware
-from .models.testing_mode import *
-from .models.user_model import User, TempUser, UserDetails, UserSocialDetails
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from datetime import datetime
-from .routers.users.login import login_user
 from types import SimpleNamespace
-from .models.course_model import *
-from .models.resource_model import *
-from fastapi.staticfiles import StaticFiles
-import os
+from pathlib import Path
 from dotenv import load_dotenv
+import os
 
+# ✅ Load environment variables from .env
+load_dotenv()
+
+# ✅ Determine base directory (cross-platform)
+BASE_DIR = Path(__file__).resolve().parent
+
+# ✅ Get UPLOAD_DIR from environment or default to ./uploads
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "uploads"))
+
+# ✅ Ensure the upload directory exists
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# ✅ Create FastAPI app
 app = FastAPI()
 
-
-load_dotenv()  # Load from .env
-
-UPLOAD_DIR = os.getenv("UPLOAD_DIR")
-
-from pathlib import Path
-from fastapi.staticfiles import StaticFiles
-
-BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-
+# ✅ Mount static file route for uploaded files
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-# Base.metadata.drop_all(bind=engine,tables=[
-#     Courses.__table__,
-# ])
 
+# ✅ Import routers and models
+from .routers.users import login, signup, user
+from .routers.courses import student_courses, teacher_courses
+from .routers.resources import resources
+from .connection.database import engine, Base
+from .models.testing_mode import *
+from .models.user_model import User, TempUser, UserDetails, UserSocialDetails
+from .models.course_model import *
+from .models.resource_model import *
 
-# Base.metadata.create_all(bind=engine,tables=[
-#     Courses.__table__,
-#     CourseMentor.__table__,
-#     CourseDomain.__table__,
-#     DomainTag.__table__,
-# ])
-
-# Base.metadata.drop_all(bind=engine)
-
-
-# Base.metadata.drop_all(
-#     bind=engine,
-#     tables=[
-#         IndividualCourse.__table__,
-#         CourseMentor.__table__,
-#         CourseDomain.__table__,
-#         DomainTag.__table__
-#     ]
-# )
-
+# ✅ CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Replace with specific origin(s) in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ✅ Register routers
 app.include_router(login.router)
 app.include_router(signup.router)
 app.include_router(student_courses.router)
@@ -73,22 +53,11 @@ app.include_router(teacher_courses.router)
 app.include_router(user.router)
 app.include_router(resources.router)
 
-
-# print("BEFORE____________________")
-# # Create a new session to interact with the database
-# with Session(bind=engine) as session:
-#     users = session.query(User).all()
-#     for user in users:
-#         # Print user details, e.g., id, username, email
-#         print(f"ID: {user.id}")
-
-
-#         # Insert a new user into the database
-
+# ✅ Optional: DB testing code (commented out)
 # with Session(bind=engine) as session:
 #     new_user = User(
 #         username="new_username",
-#         password="hashed_password",  # Replace with actual hashed password
+#         password="hashed_password",
 #         createdAt=datetime.utcnow(),
 #         updatedAt=datetime.utcnow(),
 #         active=True
@@ -96,27 +65,3 @@ app.include_router(resources.router)
 #     session.add(new_user)
 #     session.commit()
 #     print(f"Inserted user with ID: {new_user.id}")
-
-# print("AFTER________________________")
-# # Create a new session to interact with the database
-# with Session(bind=engine) as session:
-#     users = session.query(User).all()
-#     for user in users:
-#         # Print user details, e.g., id, username, email
-#         print(f"ID: {user.id}")
-
-
-# print("LOGIN_________________________")
-
-
-# try:
-#     with Session(bind=engine) as session:
-#         # Create a mock payload object with email and password attributes
-#         payload = SimpleNamespace(email="test@gmail.com", password="hello")
-#         result = login_user(payload, db=session)
-#         print(result)
-# except Exception as e:
-#     print("ERROR:", e)
-#     import traceback
-#     traceback.print_exc()
-

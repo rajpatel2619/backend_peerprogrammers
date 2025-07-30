@@ -5,19 +5,26 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
+from pathlib import Path
+
 from ...connection.utility import get_db
 from ...schemas.course_schema import *
 from ...models.course_model import *
 from ...models.user_model import *
 
-# Initialize Router and Environment
-router = APIRouter()
+# --- Load environment variables and define paths ---
 load_dotenv()
-UPLOAD_DIR = os.getenv("UPLOAD_DIR")
-DOWN_DIR = os.getenv("DOWN_DIR")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Create Course Endpoint
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  # adjust depth as needed
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "app" / "uploads"))
+DOWN_DIR = os.getenv("DOWN_DIR", "http://localhost:8000")  # fallback base URL
+
+# Ensure uploads directory exists
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+router = APIRouter()
+
+# --- Create Course Endpoint ---
 @router.post("/create-course")
 def create_course(
     userId: int = Form(...),
@@ -44,8 +51,8 @@ def create_course(
         cover_filename = f"{userId}_{timestamp}_{os.path.basename(cover_photo.filename)}"
         syllabus_filename = f"{userId}_{timestamp}_{os.path.basename(syllabus_file.filename)}"
 
-        cover_path = os.path.join(UPLOAD_DIR, cover_filename)
-        syllabus_path = os.path.join(UPLOAD_DIR, syllabus_filename)
+        cover_path = UPLOAD_DIR / cover_filename
+        syllabus_path = UPLOAD_DIR / syllabus_filename
 
         with open(cover_path, "wb") as f:
             shutil.copyfileobj(cover_photo.file, f)
@@ -102,7 +109,8 @@ def create_course(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Course creation failed: {str(e)}")
 
-# Update Course Endpoint
+
+# --- Update Course Endpoint ---
 @router.put("/update-course/{user_id}/{course_id}")
 def update_course(
     user_id: int,
@@ -116,7 +124,6 @@ def update_course(
 
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-
     if course.creatorid != user_id:
         raise HTTPException(status_code=403, detail="Only the creator can update this course")
 
@@ -135,7 +142,7 @@ def update_course(
     if cover_photo:
         timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
         cover_filename = f"{user_id}_{timestamp}_{os.path.basename(cover_photo.filename)}"
-        cover_path = os.path.join(UPLOAD_DIR, cover_filename)
+        cover_path = UPLOAD_DIR / cover_filename
         with open(cover_path, "wb") as f:
             shutil.copyfileobj(cover_photo.file, f)
         course.cover_photo = f"{DOWN_DIR}/uploads/{cover_filename}"
@@ -143,7 +150,7 @@ def update_course(
     if syllabus_file:
         timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
         syllabus_filename = f"{user_id}_{timestamp}_{os.path.basename(syllabus_file.filename)}"
-        syllabus_path = os.path.join(UPLOAD_DIR, syllabus_filename)
+        syllabus_path = UPLOAD_DIR / syllabus_filename
         with open(syllabus_path, "wb") as f:
             shutil.copyfileobj(syllabus_file.file, f)
         course.syllabus_link = f"{DOWN_DIR}/uploads/{syllabus_filename}"
@@ -171,49 +178,34 @@ def update_course(
     }
 
 
-
-# Unpublish a Course
+# --- Publish/Unpublish Courses ---
 @router.post("/unpublish-courses/{user_id}/{course_id}")
 def unpublish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
     course = db.query(Courses).filter(Courses.id == course_id).first()
-
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-
     if course.creatorid != user_id:
         raise HTTPException(status_code=403, detail="User is not the creator of this course")
 
     course.is_published = False
     db.commit()
+    return {"success": True, "message": "Course unpublished successfully", "course_id": course.id}
 
-    return {
-        "success": True,
-        "message": "Course unpublished successfully",
-        "course_id": course.id
-    }
 
-# Publish a Course
 @router.post("/publish-courses/{user_id}/{course_id}")
 def publish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
     course = db.query(Courses).filter(Courses.id == course_id).first()
-
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-
     if course.creatorid != user_id:
         raise HTTPException(status_code=403, detail="User is not the creator of this course")
 
     course.is_published = True
     db.commit()
-
-    return {
-        "success": True,
-        "message": "Course published successfully",
-        "course_id": course.id
-    }
+    return {"success": True, "message": "Course published successfully", "course_id": course.id}
 
 
-
+# --- Get All Courses ---
 @router.get("/all-courses")
 def get_all_courses(db: Session = Depends(get_db)):
     try:
@@ -243,15 +235,13 @@ def get_all_courses(db: Session = Depends(get_db)):
                 "domains": [d.domain.name for d in course.domain_tags],
             })
 
-        return {
-            "success": True,
-            "courses": result
-        }
+        return {"success": True, "courses": result}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
 
 
+# --- Get Courses By User ---
 @router.get("/courses/by-user/{user_id}")
 def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
     try:
@@ -285,15 +275,13 @@ def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
                 "domains": [d.domain.name for d in c.domain_tags],
             })
 
-        return {
-            "success": True,
-            "courses": result
-        }
+        return {"success": True, "courses": result}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
 
 
+# --- Domain Tag Endpoints ---
 @router.post("/add-domain-tag")
 def add_domain_tag(payload: dict, db: Session = Depends(get_db)):
     name = payload["name"]
