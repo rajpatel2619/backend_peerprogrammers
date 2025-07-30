@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from datetime import datetime
 from sqlalchemy import inspect
@@ -7,47 +8,100 @@ from ...connection.utility import get_db
 from ...schemas.course_schema import *
 from ...models.course_model import *
 from ...models.user_model import *
+import os
+from dotenv import load_dotenv
+
 
 router = APIRouter()
 
 
 
+load_dotenv()  # Load from .env
+
+UPLOAD_DIR = os.getenv("UPLOAD_DIR")
+
+
+# Make sure the directory exists
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+@router.post("/upload-course-file/")
+def upload_course_file(file: UploadFile = File(...), userId: int = None):
+    if not userId:
+        raise HTTPException(status_code=400, detail="userId is required")
+
+    # Extract only the file name (no directories)
+    original_filename = os.path.basename(file.filename)
+
+    # Create unique filename
+    timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    filename = f"{userId}_{timestamp}_{original_filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    # Save the file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    public_url = f"https://localhost:8283/uploads/{filename}"
+
+    return {
+        "message": "File uploaded successfully",
+        "url": public_url
+    }
+
+
+@router.delete("/delete-course-file/")
+def delete_course_file(filename: str):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    try:
+        os.remove(file_path)
+        return {"message": "File deleted successfully", "filename": filename}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+
 
 @router.put("/update-course/{user_id}/{course_id}")
 def update_course(user_id: int, course_id: int, payload: dict, db: Session = Depends(get_db)):
-    course = db.query(IndividualCourse).filter(IndividualCourse.id == course_id).first()
+    course = db.query(Courses).filter(Courses.id == course_id).first()
 
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
     if course.creatorid != user_id:
-        raise HTTPException(status_code=403, detail="Only creator can update this course")
+        raise HTTPException(status_code=403, detail="Only the creator can update this course")
 
-    # Map payload to course fields dynamically
+    # Fields allowed to be updated
     updatable_fields = [
         "title", "mode", "start_date", "end_date", "description",
-        "syllabus_link", "daily_meeting_link", "lecture_link", "cover_photo",
-        "price", "is_published",
-        "basic_seats", "basic_price", "basic_whatsapp", "basic_meeting_link",
-        "premium_seats", "premium_price", "premium_whatsapp", "premium_meeting_link",
-        "ultra_seats", "ultra_price", "ultra_whatsapp", "ultra_meeting_link",
-        "co_mentors"
+        "syllabus_link", "syllausContent", "lecture_link", "cover_photo",
+        "price", "seats", "chatLink", "co_mentors"
     ]
 
-        # Update basic course fields
+    # Update course fields
     for field in updatable_fields:
         if field in payload:
             setattr(course, field, payload[field])
+            
+    course.isVerified = False
 
-    # Handle co_mentors from creator_ids
+    # Handle co_mentors from creator_ids (if provided)
     if "creator_ids" in payload:
         co_mentors = [uid for uid in payload["creator_ids"] if uid != user_id]
         course.co_mentors = ",".join(str(uid) for uid in co_mentors)
 
-    # Handle domains update
-    if "domains" in payload:
+        # Update CourseMentor entries
+        db.query(CourseMentor).filter_by(course_id=course.id).delete()
+        for mentor_id in payload["creator_ids"]:
+            db.add(CourseMentor(course_id=course.id, user_id=mentor_id, role="Mentor"))
+
+    # Handle domain updates
+    if "domain_ids" in payload:
         db.query(CourseDomain).filter_by(course_id=course.id).delete()
-        for domain_id in payload["domains"]:
+        for domain_id in payload["domain_ids"]:
             db.add(CourseDomain(course_id=course.id, domain_id=int(domain_id)))
 
     db.commit()
@@ -56,8 +110,9 @@ def update_course(user_id: int, course_id: int, payload: dict, db: Session = Dep
     return {
         "success": True,
         "message": "Course updated successfully",
-        "course_id": course.id
+        "course_id": course
     }
+
 
 
 @router.post("/unpublish-courses/{user_id}/{course_id}")
@@ -234,129 +289,55 @@ def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
 
 @router.post("/create-course")
-def create_course(payload: dict, db: Session = Depends(get_db)):
+def create_course(payload: dict,file: UploadFile = File(...),  db: Session = Depends(get_db)):
     try:
         # Prepare co_mentors string (optional)
-        co_mentors_str = ",".join(str(uid) for uid in payload.get("creator_ids", [])).strip(",")
+        co_mentors_str = ",".join(str(uid) for uid in payload.get("co_mentor_ids", [])).strip(",")
 
-        # Create course object based on mode
-        if payload["mode"].lower() == "live":
-            course = IndividualCourse(
-                creatorid=payload["userId"],
-                title=payload["title"],
-                mode=payload["mode"],
-                start_date=payload.get("start_date"),
-                end_date=payload.get("end_date"),
-                co_mentors=co_mentors_str,
-                description=payload.get("description"),
-                syllabus_link=payload.get("syllabusFile"),
-                daily_meeting_link=payload.get("daily_meeting_link"),
-                is_published=payload.get("is_published", False),
-                cover_photo=payload.get("coverPhoto"),
-                lecture_link=payload.get("lecture_link"),
-                basic_seats=payload["basic_plan"]["seats"],
-                basic_price=payload["basic_plan"]["price"],
-                basic_whatsapp=payload["basic_plan"]["whatsapp"],
-                basic_meeting_link=payload["basic_plan"].get("meeting_link"),
-                premium_seats=payload["premium_plan"]["seats"],
-                premium_price=payload["premium_plan"]["price"],
-                premium_whatsapp=payload["premium_plan"]["whatsapp"],
-                premium_meeting_link=payload["premium_plan"].get("meeting_link"),
-                ultra_seats=payload["ultra_plan"]["seats"],
-                ultra_price=payload["ultra_plan"]["price"],
-                ultra_whatsapp=payload["ultra_plan"]["whatsapp"],
-                ultra_meeting_link=payload["ultra_plan"].get("meeting_link"),
-            )
-        else:  # Recorded mode
-            course = IndividualCourse(
-                creatorid=payload["userId"],
-                title=payload["title"],
-                mode=payload["mode"],
-                start_date=payload.get("start_date"),
-                end_date=payload.get("end_date"),
-                co_mentors=co_mentors_str,
-                description=payload.get("description"),
-                syllabus_link=payload.get("syllabusFile"),
-                daily_meeting_link=payload.get("daily_meeting_link"),
-                is_published=payload.get("is_published", False),
-                cover_photo=payload.get("coverPhoto"),
-                lecture_link=payload.get("lecture_link"),
-                price=payload.get("price"),
-            )
+        course = Courses(
+            creatorid=payload["userId"],
+            title=payload["title"],
+            mode=payload["mode"],
+            start_date=payload.get("start_date"),
+            end_date=payload.get("end_date"),
+            co_mentors=co_mentors_str,
+            description=payload.get("description"),
+            syllabus_link=payload.get("syllabus_link"),
+            syllausContent=payload.get("syllabus_content"),
+            is_published=payload.get("is_published", False),
+            cover_photo=payload.get("cover_photo"),
+            lecture_link=payload.get("lecture_link"),
+            seats=payload["seats"],
+            chatLink=payload["chat_link"],
+            price=payload.get("price"),
+            isExtraRegistration=payload.get("is_extra_registration", False),
+        )
 
         db.add(course)
         db.flush()  # To get course.id before commit
 
         # Save mentors
         for uid in payload.get("creator_ids", []):
-            if not db.query(User).filter_by(id=uid).first():
+            user = db.query(User).filter_by(id=uid).first()
+            if not user:
                 raise HTTPException(status_code=400, detail=f"User ID {uid} does not exist")
+
             db.add(CourseMentor(course_id=course.id, user_id=uid, role="Mentor"))
 
-        # Save domains (by resolving domain names to domain_ids)
-        for domain_id in payload.get("domains", []):
-            domain_obj = db.query(DomainTag).filter_by(id=domain_id).first()
-            if not domain_obj:
-                raise HTTPException(status_code=400, detail=f"Domain ID '{domain_id}' not found")
-            db.add(CourseDomain(course_id=course.id, domain_id=domain_id))
+        # Save domain tags
+        for domain_id in payload.get("domain_ids", []):
+            domain = db.query(DomainTag).filter_by(id=domain_id).first()
+            if not domain:
+                raise HTTPException(status_code=400, detail=f"Domain ID {domain_id} not found")
 
+            db.add(CourseDomain(course_id=course.id, domain_id=domain_id))
 
         db.commit()
         db.refresh(course)
 
-        # Build response
         return {
             "success": True,
-            "course": {
-                "id": course.id,
-                "title": course.title,
-                "mode": course.mode,
-                "creatorid": course.creatorid,
-                "is_published": course.is_published,
-                "syllabus_link": course.syllabus_link,
-                "co_mentors": course.co_mentors,
-                "cover_photo": course.cover_photo,
-                "description": course.description,
-                "start_date": str(course.start_date) if course.start_date else None,
-                "end_date": str(course.end_date) if course.end_date else None,
-                "daily_meeting_link": course.daily_meeting_link,
-                "lecture_link": course.lecture_link,
-                "basic_plan": (
-                    {
-                        "seats": course.basic_seats,
-                        "price": course.basic_price,
-                        "whatsapp": course.basic_whatsapp,
-                        "meeting_link": course.basic_meeting_link,
-                    }
-                    if course.mode.lower() == "live"
-                    else None
-                ),
-                "premium_plan": (
-                    {
-                        "seats": course.premium_seats,
-                        "price": course.premium_price,
-                        "whatsapp": course.premium_whatsapp,
-                        "meeting_link": course.premium_meeting_link,
-                    }
-                    if course.mode.lower() == "live"
-                    else None
-                ),
-                "ultra_plan": (
-                    {
-                        "seats": course.ultra_seats,
-                        "price": course.ultra_price,
-                        "whatsapp": course.ultra_whatsapp,
-                        "meeting_link": course.ultra_meeting_link,
-                    }
-                    if course.mode.lower() == "live"
-                    else None
-                ),
-                "price": course.price if course.mode.lower() == "recorded" else None,
-                "domains": [d.domain.name for d in course.domain_tags],
-                "creator_ids": [m.user_id for m in course.mentors],
-                "created_at": course.created_at.isoformat(),
-                "updated_at": course.updated_at.isoformat(),
-            },
+            "course": course
         }
 
     except Exception as e:

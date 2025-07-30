@@ -15,12 +15,30 @@ from .routers.users.login import login_user
 from types import SimpleNamespace
 from .models.course_model import *
 from .models.resource_model import *
+from fastapi.staticfiles import StaticFiles
+import os
+from dotenv import load_dotenv
 
 app = FastAPI()
 
+
+load_dotenv()  # Load from .env
+
+UPLOAD_DIR = os.getenv("UPLOAD_DIR")
+
+
+app.mount("/uploads", StaticFiles(directory="/home/thearp/Desktop/tms/backend_peerprogrammers/app/uploads"), name="uploads")
+
+# Base.metadata.drop_all(bind=engine,tables=[
+#     Courses.__table__,
+# ])
+
+
 # Base.metadata.create_all(bind=engine,tables=[
-#     UserDetails.__table__,
-#     UserSocialDetails.__table__,
+#     Courses.__table__,
+#     CourseMentor.__table__,
+#     CourseDomain.__table__,
+#     DomainTag.__table__,
 # ])
 
 # Base.metadata.drop_all(bind=engine)
