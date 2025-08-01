@@ -37,6 +37,16 @@ from .models.course_model import *
 from .models.resource_model import *
 from .models.registration_model import *
 from .routers.registration import registraion
+from .models.registration_model import CourseRegistration
+from .models.registration_model import Payment
+
+# ✅ Create tables
+
+
+# Base.metadata.create_all(bind=engine, tables=[
+#     Payment.__table__,
+#     CourseRegistration.__table__,
+# ])
 
 
 # ✅ CORS middleware

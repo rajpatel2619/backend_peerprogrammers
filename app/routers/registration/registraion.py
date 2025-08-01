@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ...models.course_model import *
 from ...models.registration_model import *
@@ -7,10 +7,15 @@ from ...connection.utility import get_db
 
 router = APIRouter(prefix="/registrations", tags=["Registrations"])
 
-
 # Register a user to a course
 @router.post("/")
-def register_user(user_id: int, course_id: int, payment_mode: str = None, db: Session = Depends(get_db)):
+def register_user(
+    user_id: int,
+    course_id: int,
+    transaction_id: str = None,
+    fee: int = None,
+    db: Session = Depends(get_db)
+):
     existing = db.query(CourseRegistration).filter_by(
         user_id=user_id,
         course_id=course_id
@@ -22,8 +27,10 @@ def register_user(user_id: int, course_id: int, payment_mode: str = None, db: Se
     reg = CourseRegistration(
         user_id=user_id,
         course_id=course_id,
-        payment_mode=payment_mode,
-        has_paid=True
+        transaction_id=transaction_id,
+        payment_date = datetime.utcnow(),
+        fee = fee
+        
     )
     db.add(reg)
     db.commit()
@@ -33,46 +40,33 @@ def register_user(user_id: int, course_id: int, payment_mode: str = None, db: Se
         "registration_id": reg.id,
         "user_id": reg.user_id,
         "course_id": reg.course_id,
+        "fee": reg.fee,
+        "transaction_id": reg.transaction_id,
+        "payment_date": reg.payment_date,
+        "joined_at": reg.joined_at,
     }
 
 
-# Get all registrations for a specific course
-@router.get("/course/{course_id}")
-def get_course_registrations(course_id: int, db: Session = Depends(get_db)):
-    regs = db.query(CourseRegistration).filter_by(course_id=course_id).all()
-    return [
-        {
-            "registration_id": r.id,
-            "user_id": r.user_id,
-            "has_paid": r.has_paid,
-            "is_verified": r.is_verified,
-            "joined_at": r.joined_at,
-        } for r in regs
-    ]
+@router.get("/count/{course_id}")
+def get_registration_count(course_id: int, db: Session = Depends(get_db)):
+    count = db.query(CourseRegistration).filter_by(course_id=course_id).count()
+    return {
+        "course_id": course_id,
+        "registration_count": count
+    }
 
 
-# Get all registrations for a specific user
 @router.get("/user/{user_id}")
-def get_user_registrations(user_id: int, db: Session = Depends(get_db)):
+def get_registrations_by_user(user_id: int, db: Session = Depends(get_db)):
     regs = db.query(CourseRegistration).filter_by(user_id=user_id).all()
-    return [
-        {
-            "registration_id": r.id,
-            "course_id": r.course_id,
-            "has_paid": r.has_paid,
-            "is_verified": r.is_verified,
-            "joined_at": r.joined_at,
-        } for r in regs
-    ]
+    return regs
 
 
-# Verify a registration
-@router.put("/{registration_id}/verify")
-def verify_registration(registration_id: int, db: Session = Depends(get_db)):
-    reg = db.query(CourseRegistration).filter_by(id=registration_id).first()
+@router.get("/{registration_id}")
+def get_registration_by_id(registration_id: int, db: Session = Depends(get_db)):
+    reg = db.query(CourseRegistration).get(registration_id)
     if not reg:
-        raise HTTPException(status_code=404, detail="Registration not found.")
-    
-    reg.is_verified = True
-    db.commit()
-    return {"message": "Registration verified", "registration_id": reg.id}
+        raise HTTPException(status_code=404, detail="Registration not found")
+    return reg
+
+
