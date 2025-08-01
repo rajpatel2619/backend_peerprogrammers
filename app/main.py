@@ -35,6 +35,9 @@ from .models.testing_mode import *
 from .models.user_model import User, TempUser, UserDetails, UserSocialDetails
 from .models.course_model import *
 from .models.resource_model import *
+from .models.registration_model import *
+from .routers.registration import registraion
+
 
 # ✅ CORS middleware
 app.add_middleware(
@@ -52,6 +55,7 @@ app.include_router(student_courses.router)
 app.include_router(teacher_courses.router)
 app.include_router(user.router)
 app.include_router(resources.router)
+app.include_router(registraion.router)
 
 # ✅ Optional: DB testing code (commented out)
 # with Session(bind=engine) as session:
