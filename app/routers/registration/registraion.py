@@ -164,3 +164,33 @@ def get_user_role_in_course(user_id: int, course_id: int, db: Session = Depends(
     }
 
 
+
+# ─── 7. Get Detailed Registered Courses of a User ─────────────────────────────
+@router.get("/user/{user_id}/courses")
+def get_registered_courses_detail(user_id: int, db: Session = Depends(get_db)):
+    registrations = (
+        db.query(CourseRegistration)
+        .filter_by(user_id=user_id)
+        .join(Courses, CourseRegistration.course_id == Courses.id)
+        .all()
+    )
+
+    course_details = []
+    for reg in registrations:
+        course = db.query(Courses).filter_by(id=reg.course_id).first()
+        if course:
+            course_details.append({
+                "course_id": course.id,
+                "title": course.title,
+                "description": course.description,
+                "mode": course.mode,
+                "start_date": course.start_date,
+                "price": course.price,
+                "creator_id": course.creatorid,
+                "registered_on": reg.payment_date,
+            })
+
+    return {
+        "user_id": user_id,
+        "registered_courses": course_details
+    }
