@@ -164,11 +164,3 @@ def get_user_role_in_course(user_id: int, course_id: int, db: Session = Depends(
     }
 
 
-
-# ─── 5. Get Registration By ID ───────────────────────────────────────────────────
-@router.get("/{registration_id}")
-def get_registration_by_id(registration_id: int, db: Session = Depends(get_db)):
-    reg = db.query(CourseRegistration).get(registration_id)
-    if not reg:
-        raise HTTPException(status_code=404, detail="Registration not found")
-    return reg
