@@ -139,6 +139,21 @@ def get_registrations_by_user(user_id: int, db: Session = Depends(get_db)):
     return regs
 
 
+
+
+# ─── 6. Check if User is Registered for a Course ─────────────────────────────────
+@router.get("/is-registered/")
+def is_user_registered(user_id: int, course_id: int, db: Session = Depends(get_db)):
+    existing = db.query(CourseRegistration).filter_by(
+        user_id=user_id, course_id=course_id
+    ).first()
+    return {
+        "user_id": user_id,
+        "course_id": course_id,
+        "is_registered": existing is not None
+    }
+
+
 # ─── 5. Get Registration By ID ───────────────────────────────────────────────────
 @router.get("/{registration_id}")
 def get_registration_by_id(registration_id: int, db: Session = Depends(get_db)):

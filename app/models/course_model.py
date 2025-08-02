@@ -62,6 +62,7 @@ class CourseMentor(Base):
     joined_at = Column(DateTime, default=datetime.utcnow)
 
     course = relationship("Courses", back_populates="mentors")
+    user = relationship("User", back_populates="mentorships")
 
 
 class CourseDomain(Base):

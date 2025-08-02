@@ -34,25 +34,28 @@ def get_course(course_id: int, db: Session = Depends(get_db)):
         "domains": course.domains,
         "created_at": course.created_at,
         "updated_at": course.updated_at,
-
         # Related mentors
         "mentors": [
             {
                 "user_id": mentor.user_id,
                 "role": mentor.role,
-                "joined_at": mentor.joined_at
+                "joined_at": mentor.joined_at,
+                "name": (
+                    f"{mentor.user.user_details.firstName} {mentor.user.user_details.lastName}"
+                    if mentor.user and mentor.user.user_details
+                    else None
+                ),
+                "email": (
+                    mentor.user.user_details.email
+                    if mentor.user and mentor.user.user_details
+                    else None
+                ),
             }
             for mentor in course.mentors
         ],
-
         # Related domain tags
         "domain_tags": [
-            {
-                "id": domain_tag.domain.id,
-                "name": domain_tag.domain.name
-            }
+            {"id": domain_tag.domain.id, "name": domain_tag.domain.name}
             for domain_tag in course.domain_tags
-        ]
+        ],
     }
-
-
