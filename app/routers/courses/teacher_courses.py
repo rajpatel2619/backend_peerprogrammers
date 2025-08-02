@@ -246,16 +246,11 @@ def get_all_courses(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
 
-
-# --- Get Courses By User ---
-@router.get("/courses/by-user/{user_id}")
-def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
+# --- Get Courses Created By User ---
+@router.get("/courses/created-by/{user_id}")
+def get_courses_created_by_user(user_id: int, db: Session = Depends(get_db)):
     try:
-        creator_course_ids = db.query(Courses.id).filter(Courses.creatorid == user_id)
-        mentor_course_ids = db.query(CourseMentor.course_id).filter(CourseMentor.user_id == user_id)
-
-        all_ids = {cid for (cid,) in creator_course_ids.union(mentor_course_ids).all()}
-        courses = db.query(Courses).filter(Courses.id.in_(all_ids)).all()
+        courses = db.query(Courses).filter(Courses.creatorid == user_id).all()
 
         result = []
         for c in courses:
@@ -284,7 +279,7 @@ def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
         return {"success": True, "courses": result}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch created courses: {str(e)}")
 
 
 # --- Domain Tag Endpoints ---
