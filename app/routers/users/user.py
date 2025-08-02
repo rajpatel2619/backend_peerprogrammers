@@ -132,3 +132,36 @@ def update_user(payload: UserUpdateSchema, db: Session = Depends(get_db)):
     }
 
     return {"message": "User updated successfully", "user": updated_user}
+
+
+
+@router.get("/public_user/{user_id}")
+def get_public_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id, User.active == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found or inactive")
+
+    user_details = db.query(UserDetails).filter(UserDetails.userId == user.id).first()
+    social_details = db.query(UserSocialDetails).filter(UserSocialDetails.userId == user.id).first()
+
+    full_name = None
+    if user_details:
+        first = user_details.firstName or ""
+        last = user_details.lastName or ""
+        full_name = f"{first} {last}".strip()
+
+    response = {
+        "id": user.id,
+        "username": user.username,
+        "name": full_name,
+        "social": {
+            "github": social_details.github if social_details else None,
+            "linkedin": social_details.linkedin if social_details else None,
+            "medium": social_details.medium if social_details else None,
+            "youtube": social_details.youtube if social_details else None,
+            "twitter": social_details.twitter if social_details else None,
+            "personalWebsite": social_details.personalWebsite if social_details else None,
+        }
+    }
+
+    return {"user": response}
