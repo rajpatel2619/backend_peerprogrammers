@@ -149,24 +149,20 @@ def get_user_role_in_course(user_id: int, course_id: int, db: Session = Depends(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    # 2. Check role
-    is_creator = course.creatorid == user_id
-
-    is_student = db.query(CourseRegistration).filter_by(
-        user_id=user_id, course_id=course_id
-    ).first() is not None
-
-    is_mentor = db.query(CourseMentor).filter_by(
-        user_id=user_id, course_id=course_id
-    ).first() is not None
+    # 2. Role priority: creator > mentor > student
+    if course.creatorid == user_id:
+        role = "creator"
+    elif db.query(CourseMentor).filter_by(user_id=user_id, course_id=course_id).first():
+        role = "mentor"
+    elif db.query(CourseRegistration).filter_by(user_id=user_id, course_id=course_id).first():
+        role = "student"
+    else:
+        role = "none"
 
     return {
-        "user_id": user_id,
-        "course_id": course_id,
-        "is_creator": is_creator,
-        "is_student": is_student,
-        "is_mentor": is_mentor,
+        "role": role
     }
+
 
 
 # ─── 5. Get Registration By ID ───────────────────────────────────────────────────
