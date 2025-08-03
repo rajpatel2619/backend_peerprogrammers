@@ -48,6 +48,8 @@ from .models.registration_model import Payment
 #     CourseRegistration.__table__,
 # ])
 
+# Base.metadata.create_all(bind=engine)
+
 
 # ✅ CORS middleware
 app.add_middleware(

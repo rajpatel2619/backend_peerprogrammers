@@ -20,7 +20,7 @@ class Courses(Base):
     is_published = Column(Boolean, default=False)
 
     syllabus_link = Column(String(255), nullable=True)
-    syllausContent = Column(String(100000))
+    syllausContent = Column(String(10000))
     
     co_mentors = Column(String(255), nullable=True)
     
