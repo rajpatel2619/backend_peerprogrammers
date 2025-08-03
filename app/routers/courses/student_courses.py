@@ -62,12 +62,26 @@ def get_course(course_id: int, db: Session = Depends(get_db)):
     }
 
 
-
 @router.get("/courses_all_details/{course_id}")
-def get_course(course_id: int, db: Session = Depends(get_db)):
+def get_course_all_details(course_id: int, db: Session = Depends(get_db)):
     course = db.query(Courses).filter(Courses.id == course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+
+    # Fetch registered students
+    registrations = db.query(CourseRegistration).filter_by(course_id=course_id).all()
+    students = []
+    for reg in registrations:
+        user = reg.user  # Assuming CourseRegistration.user → User
+        if user and user.user_details:
+            students.append({
+                "user_id": user.id,
+                "name": f"{user.user_details.firstName} {user.user_details.lastName}",
+                "email": user.user_details.email,
+                "registered_at": reg.payment_date,
+                "transaction_id": reg.transaction_id,
+                "fee_paid": reg.fee
+            })
 
     return {
         "id": course.id,
@@ -91,6 +105,7 @@ def get_course(course_id: int, db: Session = Depends(get_db)):
         "domains": course.domains,
         "created_at": course.created_at,
         "updated_at": course.updated_at,
+
         # Related mentors
         "mentors": [
             {
@@ -110,11 +125,16 @@ def get_course(course_id: int, db: Session = Depends(get_db)):
             }
             for mentor in course.mentors
         ],
+
         # Related domain tags
         "domain_tags": [
             {"id": domain_tag.domain.id, "name": domain_tag.domain.name}
             for domain_tag in course.domain_tags
         ],
+
+        # Registered students
+        "students": students,
+        "total_registered": len(students),
     }
 
 
