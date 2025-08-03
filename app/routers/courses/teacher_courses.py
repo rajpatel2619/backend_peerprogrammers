@@ -211,40 +211,6 @@ def publish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
     return {"success": True, "message": "Course published successfully", "course_id": course.id}
 
 
-# --- Get All Courses ---
-@router.get("/all-courses")
-def get_all_courses(db: Session = Depends(get_db)):
-    try:
-        courses = db.query(Courses).all()
-        result = []
-
-        for course in courses:
-            result.append({
-                "id": course.id,
-                "title": course.title,
-                "mode": course.mode,
-                "creatorid": course.creatorid,
-                "description": course.description,
-                "cover_photo": course.cover_photo,
-                "syllabus_link": course.syllabus_link,
-                "co_mentors": course.co_mentors,
-                "lecture_link": course.lecture_link,
-                "chatLink": course.chatLink,
-                "price": course.price,
-                "seats": course.seats,
-                "start_date": str(course.start_date) if course.start_date else None,
-                "end_date": str(course.end_date) if course.end_date else None,
-                "is_published": course.is_published,
-                "created_at": course.created_at.isoformat(),
-                "updated_at": course.updated_at.isoformat(),
-                "creator_ids": [m.user_id for m in course.mentors],
-                "domains": [d.domain.name for d in course.domain_tags],
-            })
-
-        return {"success": True, "courses": result}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
 
 # --- Get Courses Created By User ---
 @router.get("/courses/created-by/{user_id}")

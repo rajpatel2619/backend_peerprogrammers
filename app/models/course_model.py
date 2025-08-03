@@ -51,6 +51,9 @@ class Courses(Base):
     domain_tags = relationship("CourseDomain", back_populates="course", cascade="all, delete-orphan")
 
 
+    creator = relationship("User", back_populates="created_courses")
+
+
 class CourseMentor(Base):
     __tablename__ = "course_mentors"
     

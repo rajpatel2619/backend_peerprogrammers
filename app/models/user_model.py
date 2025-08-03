@@ -39,7 +39,7 @@ class User(Base):
 
     user_details = relationship("UserDetails", backref="user", uselist=False)
     mentorships = relationship("CourseMentor", back_populates="user")
-
+    created_courses = relationship("Courses", back_populates="creator")
 
 class UserDetails(Base):
     __tablename__ = "userDetails"

@@ -62,7 +62,7 @@ def get_course(course_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/registed_courses/{user_id}")
+@router.get("/registered_courses/{user_id}")
 def get_registered_courses(user_id: int, db: Session = Depends(get_db)):
     registrations = db.query(CourseRegistration).filter_by(user_id=user_id).all()
     if not registrations:
@@ -154,3 +154,47 @@ def get_registered_students(course_id: int, db: Session = Depends(get_db)):
         "students": students,
         "total": len(students)
     }
+
+from datetime import datetime
+
+@router.get("/all_courses")
+def get_all_courses(db: Session = Depends(get_db)):
+    try:
+        courses = (
+            db.query(Courses)
+            .filter(Courses.start_date >= datetime.utcnow())
+            .order_by(Courses.created_at.desc())
+            .all()
+        )
+
+        result = []
+
+        for course in courses:
+            creator = course.creator  # Assuming Courses.creator → User
+            creator_name = (
+                f"{creator.user_details.firstName} {creator.user_details.lastName}"
+                if creator and creator.user_details else None
+            )
+
+            result.append({
+                "id": course.id,
+                "title": course.title,
+                "mode": course.mode,
+                "cover_photo": course.cover_photo,
+                "syllabus_link": course.syllabus_link,
+                "creator": {
+                    "id": course.creatorid,
+                    "name": creator_name
+                },
+                "price": course.price,
+                "seats": course.seats,
+                "start_date": str(course.start_date) if course.start_date else None,
+                "end_date": str(course.end_date) if course.end_date else None,
+                "domains": [d.domain.name for d in course.domain_tags],
+                "domain_ids": [d.domain_id for d in course.domain_tags],
+            })
+
+        return {"success": True, "courses": result}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
