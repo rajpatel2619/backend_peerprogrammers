@@ -122,3 +122,35 @@ def get_registered_courses(user_id: int, db: Session = Depends(get_db)):
         }
         for course in courses
     ]
+
+
+# ─── 3. Get Registered Students ───────────────────────────────────────────────────
+@router.get("/students/{course_id}")
+def get_registered_students(course_id: int, db: Session = Depends(get_db)):
+    registrations = (
+        db.query(CourseRegistration)
+        .filter_by(course_id=course_id)
+        .all()
+    )
+
+    if not registrations:
+        raise HTTPException(status_code=404, detail="No registrations found")
+
+    students = []
+    for reg in registrations:
+        user = reg.user  # Assuming a relationship exists: CourseRegistration.user → User
+        if user and user.user_details:
+            students.append({
+                "user_id": user.id,
+                "name": f"{user.user_details.firstName} {user.user_details.lastName}",
+                "email": user.user_details.email,
+                "registered_at": reg.payment_date,
+                "transaction_id": reg.transaction_id,
+                "fee_paid": reg.fee
+            })
+
+    return {
+        "course_id": course_id,
+        "students": students,
+        "total": len(students)
+    }
