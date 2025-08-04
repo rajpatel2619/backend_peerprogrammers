@@ -49,6 +49,7 @@ from .models.registration_model import Payment
 # ])
 
 # Base.metadata.create_all(bind=engine)
+# Base.metadata.drop_all(bind=engine)
 
 # CourseDomain.__table__.drop(engine)
 # DomainTag.__table__.drop(engine)

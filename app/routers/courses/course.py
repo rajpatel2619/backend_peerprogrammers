@@ -119,3 +119,20 @@ def get_course_verification_status(course_id: int, db: Session = Depends(get_db)
         "isVerified": course.isVerified
     }
 
+
+
+
+@router.get("/courses/by-user/{user_id}")
+def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
+    try:
+        creator_courses = db.query(Courses).filter(Courses.creatorid == user_id).all()
+
+        return {
+            "success": True,
+            "courses": [course for course in creator_courses]
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": str(e)
+        }
