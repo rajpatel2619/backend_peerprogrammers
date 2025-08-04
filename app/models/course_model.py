@@ -84,3 +84,12 @@ class DomainTag(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), unique=True, nullable=False)
+
+    createdBy = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    isVerified = Column(Boolean, default=False)
+
+    created_user = relationship("User", foreign_keys=[createdBy], backref="created_domains")
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

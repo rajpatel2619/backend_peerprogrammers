@@ -248,37 +248,6 @@ def get_courses_created_by_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to fetch created courses: {str(e)}")
 
 
-# --- Domain Tag Endpoints ---
-@router.post("/add-domain-tag")
-def add_domain_tag(payload: dict, db: Session = Depends(get_db)):
-    name = payload["name"]
-    existing = db.query(DomainTag).filter(DomainTag.name == name).first()
-
-    if existing:
-        raise HTTPException(status_code=400, detail="Domain tag already exists")
-
-    new_tag = DomainTag(name=name)
-    db.add(new_tag)
-    db.commit()
-    db.refresh(new_tag)
-
-    return {
-        "success": True,
-        "message": "Domain tag added successfully",
-        "tag_id": new_tag.id,
-        "tag_name": new_tag.name
-    }
-
-
-@router.get("/all-domain-tags")
-def get_all_domain_tags(db: Session = Depends(get_db)):
-    tags = db.query(DomainTag).order_by(DomainTag.name).all()
-    return {
-        "success": True,
-        "total": len(tags),
-        "tags": [{"id": tag.id, "name": tag.name} for tag in tags]
-    }
-
 
 # --- Get Single Course Detail by User ID and Course ID ---
 @router.get("/course-detail/{user_id}/{course_id}")
@@ -324,3 +293,6 @@ def get_course_detail(user_id: int, course_id: int, db: Session = Depends(get_db
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch course detail: {str(e)}")
+
+
+
