@@ -31,6 +31,8 @@ class User(Base):
     username = Column(String(150), unique=True, index=True, nullable=False)
     password = Column(String(255), nullable=False)
 
+    userType = Column(String(100), default="normal")
+
     preferredAccount = Column(String(200))  # "Student" or "Instructor"
 
     active = Column(Boolean, default=True)

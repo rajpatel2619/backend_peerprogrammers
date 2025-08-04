@@ -46,6 +46,7 @@ def get_user_details(user_id: int, db: Session = Depends(get_db)):
         "active": user.active,
         "createdAt": user.createdAt,
         "updatedAt": user.updatedAt,
+        "userType": user.userType,
         "details": {
             "firstName": user_details.firstName if user_details else None,
             "lastName": user_details.lastName if user_details else None,

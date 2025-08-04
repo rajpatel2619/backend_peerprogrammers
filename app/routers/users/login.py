@@ -39,6 +39,7 @@ def login_user(payload: dict, db: Session = Depends(get_db)):
                 "createdAt": user.createdAt,
                 "updatedAt": user.updatedAt,
                 "preferredAccount": user.preferredAccount,
+                "userType": user.userType,
                 "details": {
                     "firstName": user_details.firstName if user_details else None,
                     "lastName": user_details.lastName if user_details else None,
