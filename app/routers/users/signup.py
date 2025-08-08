@@ -146,7 +146,7 @@ def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
+        raise HTTPException(status_code=500, detail=f" {e}")
 
 
 @router.post("/verify-otp")
@@ -230,7 +230,7 @@ def verify_otp(data: dict, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         print(e)
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
+        raise HTTPException(status_code=500, detail=f" {e}")
 
 
 
@@ -284,7 +284,7 @@ def forget_password(data: dict, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
+        raise HTTPException(status_code=500, detail=f" {e}")
 
 @router.post("/verify-forget-password")
 def verify_forget_password(data: dict, db: Session = Depends(get_db)):
@@ -336,4 +336,4 @@ def verify_forget_password(data: dict, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
+        raise HTTPException(status_code=500, detail=f" {e}")
