@@ -39,14 +39,32 @@ from .models.registration_model import *
 from .routers.registration import registraion
 from .models.registration_model import CourseRegistration
 from .models.registration_model import Payment
+from .models.problem_model import (
+    CodingProblem, Tag, Company,
+    ProblemTag, ProblemCompany, Sheet,
+    SheetProblem, Favorite
+)
+from .routers.problems import problems
 
 # ✅ Create tables
 
 
 # Base.metadata.create_all(bind=engine, tables=[
 #     Payment.__table__,
-#     CourseRegistration.__table__,
-# ])
+# #     CourseRegistration.__table__,
+# # ])
+# # Drop association and referencing tables first
+# ProblemTag.__table__.drop(engine, checkfirst=True)
+# ProblemCompany.__table__.drop(engine, checkfirst=True)
+# SheetProblem.__table__.drop(engine, checkfirst=True)
+# Favorite.__table__.drop(engine, checkfirst=True)
+
+# # Then drop main tables
+# CodingProblem.__table__.drop(engine, checkfirst=True)
+# Tag.__table__.drop(engine, checkfirst=True)
+# Company.__table__.drop(engine, checkfirst=True)
+# Sheet.__table__.drop(engine, checkfirst=True)
+# #
 
 # Base.metadata.create_all(bind=engine)
 # Base.metadata.drop_all(bind=engine)
@@ -74,6 +92,8 @@ app.include_router(resources.router)
 app.include_router(registraion.router)
 app.include_router(course.router)
 app.include_router(domains.router)
+app.include_router(problems.router)
+
 
 # ✅ Optional: DB testing code (commented out)
 # with Session(bind=engine) as session:

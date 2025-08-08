@@ -43,6 +43,10 @@ class User(Base):
     mentorships = relationship("CourseMentor", back_populates="user")
     created_courses = relationship("Courses", back_populates="creator")
 
+    problems = relationship("CodingProblem", back_populates="user", cascade="all, delete-orphan")
+    favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
+
+
 class UserDetails(Base):
     __tablename__ = "userDetails"
 
