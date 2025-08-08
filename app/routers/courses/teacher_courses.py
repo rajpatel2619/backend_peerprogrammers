@@ -211,51 +211,12 @@ def publish_course(user_id: int, course_id: int, db: Session = Depends(get_db)):
     return {"success": True, "message": "Course published successfully", "course_id": course.id}
 
 
-# --- Get All Courses ---
-@router.get("/all-courses")
-def get_all_courses(db: Session = Depends(get_db)):
+
+# --- Get Courses Created By User ---
+@router.get("/courses/created-by/{user_id}")
+def get_courses_created_by_user(user_id: int, db: Session = Depends(get_db)):
     try:
-        courses = db.query(Courses).all()
-        result = []
-
-        for course in courses:
-            result.append({
-                "id": course.id,
-                "title": course.title,
-                "mode": course.mode,
-                "creatorid": course.creatorid,
-                "description": course.description,
-                "cover_photo": course.cover_photo,
-                "syllabus_link": course.syllabus_link,
-                "co_mentors": course.co_mentors,
-                "lecture_link": course.lecture_link,
-                "chatLink": course.chatLink,
-                "price": course.price,
-                "seats": course.seats,
-                "start_date": str(course.start_date) if course.start_date else None,
-                "end_date": str(course.end_date) if course.end_date else None,
-                "is_published": course.is_published,
-                "created_at": course.created_at.isoformat(),
-                "updated_at": course.updated_at.isoformat(),
-                "creator_ids": [m.user_id for m in course.mentors],
-                "domains": [d.domain.name for d in course.domain_tags],
-            })
-
-        return {"success": True, "courses": result}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
-
-
-# --- Get Courses By User ---
-@router.get("/courses/by-user/{user_id}")
-def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
-    try:
-        creator_course_ids = db.query(Courses.id).filter(Courses.creatorid == user_id)
-        mentor_course_ids = db.query(CourseMentor.course_id).filter(CourseMentor.user_id == user_id)
-
-        all_ids = {cid for (cid,) in creator_course_ids.union(mentor_course_ids).all()}
-        courses = db.query(Courses).filter(Courses.id.in_(all_ids)).all()
+        courses = db.query(Courses).filter(Courses.creatorid == user_id).all()
 
         result = []
         for c in courses:
@@ -284,39 +245,8 @@ def get_courses_by_user(user_id: int, db: Session = Depends(get_db)):
         return {"success": True, "courses": result}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch created courses: {str(e)}")
 
-
-# --- Domain Tag Endpoints ---
-@router.post("/add-domain-tag")
-def add_domain_tag(payload: dict, db: Session = Depends(get_db)):
-    name = payload["name"]
-    existing = db.query(DomainTag).filter(DomainTag.name == name).first()
-
-    if existing:
-        raise HTTPException(status_code=400, detail="Domain tag already exists")
-
-    new_tag = DomainTag(name=name)
-    db.add(new_tag)
-    db.commit()
-    db.refresh(new_tag)
-
-    return {
-        "success": True,
-        "message": "Domain tag added successfully",
-        "tag_id": new_tag.id,
-        "tag_name": new_tag.name
-    }
-
-
-@router.get("/all-domain-tags")
-def get_all_domain_tags(db: Session = Depends(get_db)):
-    tags = db.query(DomainTag).order_by(DomainTag.name).all()
-    return {
-        "success": True,
-        "total": len(tags),
-        "tags": [{"id": tag.id, "name": tag.name} for tag in tags]
-    }
 
 
 # --- Get Single Course Detail by User ID and Course ID ---
@@ -363,3 +293,6 @@ def get_course_detail(user_id: int, course_id: int, db: Session = Depends(get_db
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch course detail: {str(e)}")
+
+
+

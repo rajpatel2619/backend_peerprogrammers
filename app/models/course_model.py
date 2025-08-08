@@ -20,7 +20,7 @@ class Courses(Base):
     is_published = Column(Boolean, default=False)
 
     syllabus_link = Column(String(255), nullable=True)
-    syllausContent = Column(String(100000))
+    syllausContent = Column(String(10000))
     
     co_mentors = Column(String(255), nullable=True)
     
@@ -51,6 +51,9 @@ class Courses(Base):
     domain_tags = relationship("CourseDomain", back_populates="course", cascade="all, delete-orphan")
 
 
+    creator = relationship("User", back_populates="created_courses")
+
+
 class CourseMentor(Base):
     __tablename__ = "course_mentors"
     
@@ -62,6 +65,7 @@ class CourseMentor(Base):
     joined_at = Column(DateTime, default=datetime.utcnow)
 
     course = relationship("Courses", back_populates="mentors")
+    user = relationship("User", back_populates="mentorships")
 
 
 class CourseDomain(Base):
@@ -80,3 +84,12 @@ class DomainTag(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), unique=True, nullable=False)
+
+    createdBy = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    isVerified = Column(Boolean, default=False)
+
+    created_user = relationship("User", foreign_keys=[createdBy], backref="created_domains")
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

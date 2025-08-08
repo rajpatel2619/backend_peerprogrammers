@@ -28,13 +28,32 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # ✅ Import routers and models
 from .routers.users import login, signup, user
-from .routers.courses import student_courses, teacher_courses
+from .routers.courses import student_courses, teacher_courses, course, domains
 from .routers.resources import resources
 from .connection.database import engine, Base
 from .models.testing_mode import *
 from .models.user_model import User, TempUser, UserDetails, UserSocialDetails
 from .models.course_model import *
 from .models.resource_model import *
+from .models.registration_model import *
+from .routers.registration import registraion
+from .models.registration_model import CourseRegistration
+from .models.registration_model import Payment
+
+# ✅ Create tables
+
+
+# Base.metadata.create_all(bind=engine, tables=[
+#     Payment.__table__,
+#     CourseRegistration.__table__,
+# ])
+
+# Base.metadata.create_all(bind=engine)
+# Base.metadata.drop_all(bind=engine)
+
+# CourseDomain.__table__.drop(engine)
+# DomainTag.__table__.drop(engine)
+
 
 # ✅ CORS middleware
 app.add_middleware(
@@ -52,6 +71,9 @@ app.include_router(student_courses.router)
 app.include_router(teacher_courses.router)
 app.include_router(user.router)
 app.include_router(resources.router)
+app.include_router(registraion.router)
+app.include_router(course.router)
+app.include_router(domains.router)
 
 # ✅ Optional: DB testing code (commented out)
 # with Session(bind=engine) as session:

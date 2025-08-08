@@ -26,3 +26,4 @@ typing_extensions==4.13.2
 uvicorn==0.34.2
 python-multipart
 python-dotenv
+razorpay

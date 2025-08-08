@@ -31,13 +31,17 @@ class User(Base):
     username = Column(String(150), unique=True, index=True, nullable=False)
     password = Column(String(255), nullable=False)
 
+    userType = Column(String(100), default="normal")
+
     preferredAccount = Column(String(200))  # "Student" or "Instructor"
 
     active = Column(Boolean, default=True)
     createdAt = Column(DateTime, default=datetime.utcnow)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-
+    user_details = relationship("UserDetails", backref="user", uselist=False)
+    mentorships = relationship("CourseMentor", back_populates="user")
+    created_courses = relationship("Courses", back_populates="creator")
 
 class UserDetails(Base):
     __tablename__ = "userDetails"

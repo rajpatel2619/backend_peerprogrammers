@@ -39,6 +39,7 @@ def login_user(payload: dict, db: Session = Depends(get_db)):
                 "createdAt": user.createdAt,
                 "updatedAt": user.updatedAt,
                 "preferredAccount": user.preferredAccount,
+                "userType": user.userType,
                 "details": {
                     "firstName": user_details.firstName if user_details else None,
                     "lastName": user_details.lastName if user_details else None,
@@ -61,4 +62,4 @@ def login_user(payload: dict, db: Session = Depends(get_db)):
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
+        raise HTTPException(status_code=500, detail=f"{e}")
