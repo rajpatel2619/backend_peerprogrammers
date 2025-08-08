@@ -4,7 +4,8 @@ from ...models.course_model import Courses
 from ...connection.utility import get_db
 from ...models.registration_model import CourseRegistration
 from fastapi import status
-router = APIRouter(tags=["Courses"])
+
+router = APIRouter()
 
 
 
