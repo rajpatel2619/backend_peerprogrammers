@@ -53,7 +53,7 @@ from .routers.problems import problems
 #     Payment.__table__,
 # #     CourseRegistration.__table__,
 # # ])
-# # Drop association and referencing tables first
+# Drop association and referencing tables first
 # ProblemTag.__table__.drop(engine, checkfirst=True)
 # ProblemCompany.__table__.drop(engine, checkfirst=True)
 # SheetProblem.__table__.drop(engine, checkfirst=True)
@@ -64,7 +64,7 @@ from .routers.problems import problems
 # Tag.__table__.drop(engine, checkfirst=True)
 # Company.__table__.drop(engine, checkfirst=True)
 # Sheet.__table__.drop(engine, checkfirst=True)
-# #
+#
 
 # Base.metadata.create_all(bind=engine)
 # Base.metadata.drop_all(bind=engine)

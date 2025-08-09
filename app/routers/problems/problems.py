@@ -1,249 +1,270 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form
+from typing import Optional, List
 from sqlalchemy.orm import Session
-from typing import List
 from datetime import datetime
 from ...models.problem_model import (
     CodingProblem, Tag, Company,
-    ProblemTag, ProblemCompany, Sheet,
-    SheetProblem, Favorite
+    ProblemTag, ProblemCompany, Sheet, SheetProblem
 )
 from ...connection.utility import get_db
 
 router = APIRouter(prefix="/problems", tags=["Problems"])
 
-@router.get("/")
-def list_problems(db: Session = Depends(get_db)):
-    problems = db.query(CodingProblem).all()
-    return problems
 
-@router.get("/{problem_id}")
-def get_problem(problem_id: int, db: Session = Depends(get_db)):
-    problem = db.query(CodingProblem).filter(CodingProblem.id == problem_id).first()
-    if not problem:
-        raise HTTPException(status_code=404, detail="Problem not found")
-    return problem
-
-@router.put("/{problem_id}")
-def update_problem(problem_id: int, payload: dict, db: Session = Depends(get_db)):
-    problem = db.query(CodingProblem).filter(CodingProblem.id == problem_id).first()
-    if not problem:
-        raise HTTPException(status_code=404, detail="Problem not found")
-
-    for key, value in payload.items():
-        if hasattr(problem, key) and value is not None:
-            setattr(problem, key, value)
-
-    db.commit()
-    db.refresh(problem)
-    return {"message": "Problem updated successfully", "problem": problem}
-
-@router.delete("/{problem_id}")
-def delete_problem(problem_id: int, db: Session = Depends(get_db)):
-    problem = db.query(CodingProblem).filter(CodingProblem.id == problem_id).first()
-    if not problem:
-        raise HTTPException(status_code=404, detail="Problem not found")
-    db.delete(problem)
-    db.commit()
-    return {"message": "Problem deleted successfully"}
-
-# ===========================
-# Tags
-# ===========================
-@router.get("/tags/all")
-def list_tags(db: Session = Depends(get_db)):
-    return db.query(Tag).all()
-
-@router.get("/tags/{tag_id}")
-def get_tag(tag_id: int, db: Session = Depends(get_db)):
-    tag = db.query(Tag).filter(Tag.id == tag_id).first()
-    if not tag:
-        raise HTTPException(status_code=404, detail="Tag not found")
-    return tag
-
-@router.put("/tags/{tag_id}")
-def update_tag(tag_id: int, payload: dict, db: Session = Depends(get_db)):
-    tag = db.query(Tag).filter(Tag.id == tag_id).first()
-    if not tag:
-        raise HTTPException(status_code=404, detail="Tag not found")
-    name = payload.get("name")
-    if name:
-        tag.name = name
-    db.commit()
-    db.refresh(tag)
-    return {"message": "Tag updated successfully", "tag": tag}
-
-@router.delete("/tags/{tag_id}")
-def delete_tag(tag_id: int, db: Session = Depends(get_db)):
-    tag = db.query(Tag).filter(Tag.id == tag_id).first()
-    if not tag:
-        raise HTTPException(status_code=404, detail="Tag not found")
-    db.delete(tag)
-    db.commit()
-    return {"message": "Tag deleted successfully"}
-
-# ===========================
-# Companies
-# ===========================
-@router.post("/add_company")
-def create_company(payload: dict, db: Session = Depends(get_db)):
-    name = payload.get("name")
-    created_by = payload.get("createdBy")
-    if not name:
-        raise HTTPException(status_code=400, detail="Company name is required")
-    if not created_by:
-        raise HTTPException(status_code=400, detail="createdBy (user ID) is required")
-
-    existing = db.query(Company).filter(Company.name == name).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Company already exists")
-
-    company = Company(name=name, added_by=created_by, created_at=datetime.utcnow())
-    db.add(company)
-    db.commit()
-    db.refresh(company)
-    return {"message": "Company created successfully", "company": company}
-
-@router.get("/companies/all")
-def list_companies(db: Session = Depends(get_db)):
-    return db.query(Company).all()
-
-@router.put("/companies/{company_id}")
-def update_company(company_id: int, payload: dict, db: Session = Depends(get_db)):
-    company = db.query(Company).filter(Company.id == company_id).first()
-    if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
-    name = payload.get("name")
-    if name:
-        company.name = name
-    db.commit()
-    db.refresh(company)
-    return {"message": "Company updated successfully", "company": company}
-
-@router.delete("/companies/{company_id}")
-def delete_company(company_id: int, db: Session = Depends(get_db)):
-    company = db.query(Company).filter(Company.id == company_id).first()
-    if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
-    db.delete(company)
-    db.commit()
-    return {"message": "Company deleted successfully"}
-
-# ===========================
-# Sheets
-# ===========================
-@router.post("/add_sheet")
-def create_sheet(payload: dict, db: Session = Depends(get_db)):
-    title = payload.get("title")
-    created_by = payload.get("createdBy")
-    if not title or not created_by:
-        raise HTTPException(status_code=400, detail="title and createdBy are required")
-    sheet = Sheet(
-        title=title,
-        created_by=created_by
-    )
-    db.add(sheet)
-    db.commit()
-    db.refresh(sheet)
-    return {"message": "Sheet created successfully", "sheet": sheet}
-
-@router.post("/sheet/{sheet_id}/add_problem")
-def add_problem_to_sheet(sheet_id: int, payload: dict, db: Session = Depends(get_db)):
-    problem_id = payload.get("problem_id")
-    created_by = payload.get("createdBy")
-    if not problem_id or not created_by:
-        raise HTTPException(status_code=400, detail="problem_id and createdBy are required")
-    if not db.query(Sheet).filter(Sheet.id == sheet_id).first():
-        raise HTTPException(status_code=404, detail="Sheet not found")
-    if not db.query(CodingProblem).filter(CodingProblem.id == problem_id).first():
-        raise HTTPException(status_code=404, detail="Problem not found")
-    mapping = SheetProblem(sheet_id=sheet_id, problem_id=problem_id, created_by=created_by)
-    db.add(mapping)
-    db.commit()
-    return {"message": "Problem added to sheet successfully"}
-
-@router.get("/sheets/all")
-def list_sheets(db: Session = Depends(get_db)):
-    return db.query(Sheet).all()
-
-# ===========================
-# Favorites
-# ===========================
-@router.post("/favorite/add")
-def add_favorite(payload: dict, db: Session = Depends(get_db)):
-    user_id = payload.get("user_id")
-    problem_id = payload.get("problem_id")
-    if not user_id or not problem_id:
-        raise HTTPException(status_code=400, detail="user_id and problem_id are required")
-    favorite = Favorite(user_id=user_id, problem_id=problem_id)
-    db.add(favorite)
-    db.commit()
-    return {"message": "Favorite added successfully"}
-
-@router.delete("/favorite/remove")
-def remove_favorite(payload: dict, db: Session = Depends(get_db)):
-    user_id = payload.get("user_id")
-    problem_id = payload.get("problem_id")
-    fav = db.query(Favorite).filter(Favorite.user_id == user_id, Favorite.problem_id == problem_id).first()
-    if not fav:
-        raise HTTPException(status_code=404, detail="Favorite not found")
-    db.delete(fav)
-    db.commit()
-    return {"message": "Favorite removed successfully"}
-
-@router.get("/favorite/user/{user_id}")
-def list_favorites_for_user(user_id: int, db: Session = Depends(get_db)):
-    return db.query(Favorite).filter(Favorite.user_id == user_id).all()
-
-@router.post("/add_tag")
-def create_tag(payload: dict, db: Session = Depends(get_db)):
-    name = payload.get("name")
-    created_by = payload.get("createdBy")
-    if not name:
-        raise HTTPException(status_code=400, detail="Tag name is required")
-    if not created_by:
-        raise HTTPException(status_code=400, detail="createdBy (user ID) is required")
-
+# =========================================
+# Create Tag
+# =========================================
+# Route: Create a new tag in the database
+# Method: POST
+# Input: Tag name
+# Output: Confirmation message with tag details
+@router.post("/create/tag")
+def create_tag(
+    name: str,
+    db: Session = Depends(get_db),
+    current_user_id: int = 2  # Replace with auth later
+):
     existing = db.query(Tag).filter(Tag.name == name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Tag already exists")
 
-    tag = Tag(name=name, added_by=created_by, created_at=datetime.utcnow())
+    tag = Tag(
+        name=name,
+        added_by=current_user_id,
+        created_at=datetime.utcnow()
+    )
     db.add(tag)
     db.commit()
     db.refresh(tag)
-    return {"message": "Tag created successfully", "tag": tag}
+    return {"message": "Tag created", "tag": {"id": tag.id, "name": tag.name}}
 
-@router.post("/add_problem")
-def create_problem(payload: dict, db: Session = Depends(get_db)):
-    title = payload.get("title")
-    link = payload.get("link")  # <-- required!
-    difficulty = payload.get("difficulty")
-    created_by = payload.get("createdBy")
-    tags = payload.get("tags", [])
-    companies = payload.get("companies", [])
 
-    if not title or not created_by or not link or not difficulty:
-        raise HTTPException(status_code=400, detail="title, link, difficulty, and createdBy are required")
+# =========================================
+# Create Company
+# =========================================
+# Route: Create a new company in the database
+# Method: POST
+# Input: Company name
+# Output: Confirmation message with company details
+@router.post("/create/company")
+def create_company(
+    name: str,
+    db: Session = Depends(get_db),
+    current_user_id: int = 2  # Replace with auth later
+):
+    existing = db.query(Company).filter(Company.name == name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Company already exists")
 
-    problem = CodingProblem(
-        title=title,
-        link=link,   # <-- required!
-        difficulty=difficulty,
-        created_by=created_by
+    company = Company(
+        name=name,
+        added_by=current_user_id,
+        created_at=datetime.utcnow()
     )
-    db.add(problem)
+    db.add(company)
     db.commit()
-    db.refresh(problem)
+    db.refresh(company)
+    return {"message": "Company created", "company": {"id": company.id, "name": company.name}}
+
+
+# =========================================
+# Get All Tags
+# =========================================
+# Route: Fetch all tags from the database
+# Method: GET
+# Output: List of tags with their details
+@router.get("/all/tags")
+def get_all_tags(db: Session = Depends(get_db)):
+    tags = db.query(Tag).order_by(Tag.name.asc()).all()
+    return [
+        {"id": tag.id, "name": tag.name, "created_at": tag.created_at, "added_by": tag.added_by}
+        for tag in tags
+    ]
+
+
+# =========================================
+# Get All Companies
+# =========================================
+# Route: Fetch all companies from the database
+# Method: GET
+# Output: List of companies with their details
+@router.get("/all/companies")
+def get_all_companies(db: Session = Depends(get_db)):
+    companies = db.query(Company).order_by(Company.name.asc()).all()
+    return [
+        {"id": comp.id, "name": comp.name, "created_at": comp.created_at, "added_by": comp.added_by}
+        for comp in companies
+    ]
+
+
+# =========================================
+# Create Problem
+# =========================================
+# Route: Create a new coding problem with optional tags and companies
+# Method: POST
+# Input: Problem details (title, link, difficulty, solutions, tags, companies)
+# Output: Confirmation message with problem ID
+@router.post("/create/problem")
+def create_problem(
+    title: str = Form(...),
+    link: str = Form(...),
+    difficulty: str = Form(...),
+    gitHubLink: Optional[str] = Form(None),
+    hindiSolution: Optional[str] = Form(None),
+    englishSolution: Optional[str] = Form(None),
+    tag_ids: Optional[List[int]] = Form(None),
+    company_ids: Optional[List[int]] = Form(None),
+    created_by: int = Form(1),
+    db: Session = Depends(get_db)
+):
+    # Check for duplicate problem title
+    if db.query(CodingProblem).filter(CodingProblem.title == title).first():
+        raise HTTPException(status_code=400, detail="Problem with this title already exists")
+
+    # Create problem entry
+    new_problem = CodingProblem(
+        title=title,
+        link=link,
+        difficulty=difficulty,
+        created_at=datetime.utcnow(),
+        created_by=created_by,
+        gitHubLink=gitHubLink,
+        hindiSolution=hindiSolution,
+        englishSolution=englishSolution
+    )
+    db.add(new_problem)
+    db.commit()
+    db.refresh(new_problem)
 
     # Add tags
-    for tag_id in tags:
-        if db.query(Tag).filter(Tag.id == tag_id).first():
-            db.add(ProblemTag(problem_id=problem.id, tag_id=tag_id))
+    if tag_ids:
+        for tag_id in tag_ids:
+            tag = db.query(Tag).filter(Tag.id == tag_id).first()
+            if not tag:
+                raise HTTPException(status_code=404, detail=f"Tag ID {tag_id} not found")
+            db.add(ProblemTag(problem_id=new_problem.id, tag_id=tag_id, created_by=created_by))
 
     # Add companies
-    for company_id in companies:
-        if db.query(Company).filter(Company.id == company_id).first():
-            db.add(ProblemCompany(problem_id=problem.id, company_id=company_id))
+    if company_ids:
+        for company_id in company_ids:
+            comp = db.query(Company).filter(Company.id == company_id).first()
+            if not comp:
+                raise HTTPException(status_code=404, detail=f"Company ID {company_id} not found")
+            db.add(ProblemCompany(problem_id=new_problem.id, company_id=company_id, created_by=created_by))
 
     db.commit()
-    return {"message": "Problem created successfully", "problem": problem}
+
+    return {
+        "message": "Problem created successfully",
+        "problem_id": new_problem.id
+    }
+
+
+# =========================================
+# Get All Problems
+# =========================================
+# Route: Retrieve all coding problems with tags and company names
+# Method: GET
+# Output: List of problems with their details, tags, and companies
+@router.get("/all")
+def get_all_problems(db: Session = Depends(get_db)):
+    problems = db.query(CodingProblem).all()
+    results = []
+    for p in problems:
+        results.append({
+            "id": p.id,
+            "title": p.title,
+            "link": p.link,
+            "difficulty": p.difficulty,
+            "created_at": p.created_at,
+            "updated_at": p.updated_at,
+            "created_by": p.created_by,
+            "gitHubLink": p.gitHubLink,
+            "hindiSolution": p.hindiSolution,
+            "englishSolution": p.englishSolution,
+            "tags": [t.name for t in p.tags],
+            "companies": [c.name for c in p.companies]
+        })
+    return results
+
+
+# =========================================
+# Create Sheet
+# =========================================
+# Route: Create a new problem sheet with optional list of problem IDs
+# Method: POST
+# Input: Sheet title and optional list of problems to link
+# Output: Confirmation message with sheet details and linked problems
+@router.post("/create/sheet")
+def create_sheet(
+    title: str = Form(...),
+    problem_ids: Optional[List[int]] = Form(None),  # optional list of problems to link
+    created_by: int = Form(1),
+    db: Session = Depends(get_db)
+):
+    # Check for duplicate sheet title
+    existing_sheet = db.query(Sheet).filter(Sheet.title == title).first()
+    if existing_sheet:
+        raise HTTPException(status_code=400, detail="Sheet with this title already exists")
+
+    # Create sheet entry
+    new_sheet = Sheet(
+        title=title,
+        created_by=created_by
+    )
+    db.add(new_sheet)
+    db.commit()
+    db.refresh(new_sheet)
+
+    # Add problems to sheet if provided
+    if problem_ids:
+        for pid in problem_ids:
+            problem_exists = db.query(CodingProblem).filter(CodingProblem.id == pid).first()
+            if not problem_exists:
+                raise HTTPException(status_code=404, detail=f"Problem ID {pid} not found")
+            db.add(SheetProblem(sheet_id=new_sheet.id, problem_id=pid, created_by=created_by))
+        db.commit()
+
+    return {
+        "message": "Sheet created successfully",
+        "sheet_id": new_sheet.id,
+        "title": new_sheet.title,
+        "problems_added": problem_ids if problem_ids else []
+    }
+
+
+# =========================================
+# Get All Sheets
+# =========================================
+# Route: Retrieve all sheets with their problems, tags, and companies
+# Method: GET
+# Output: List of sheets with problem details included
+@router.get("/all/sheets")
+def get_all_sheets(db: Session = Depends(get_db)):
+    sheets = db.query(Sheet).all()
+    results = []
+    for sheet in sheets:
+        results.append({
+            "id": sheet.id,
+            "title": sheet.title,
+            "created_by": sheet.created_by,
+            "created_at": sheet.created_at,
+            "problems": [
+                {
+                    "id": sp.problem.id,
+                    "title": sp.problem.title,
+                    "link": sp.problem.link,
+                    "difficulty": sp.problem.difficulty,
+                    "created_at": sp.problem.created_at,
+                    "updated_at": sp.problem.updated_at,
+                    "created_by": sp.problem.created_by,
+                    "gitHubLink": sp.problem.gitHubLink,
+                    "hindiSolution": sp.problem.hindiSolution,
+                    "englishSolution": sp.problem.englishSolution,
+                    "tags": [t.name for t in sp.problem.tags],
+                    "companies": [c.name for c in sp.problem.companies]
+                }
+                for sp in sheet.problems
+            ]
+        })
+    return results
