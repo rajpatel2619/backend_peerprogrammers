@@ -280,7 +280,7 @@ def filter_problems(
     favorite: Optional[bool] = Query(False, description="If true, fetch only user's favorite problems"),
     user_id: Optional[int] = Query(None, description="User ID (required if favorite=true)"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
+    page_size: int = Query(51, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """
@@ -340,7 +340,6 @@ def filter_problems(
     return {
         "total": total,
         "page": page,
-        "page_size": page_size,
         "results": results
     }
 

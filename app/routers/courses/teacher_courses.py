@@ -12,6 +12,7 @@ from ...schemas.course_schema import *
 from ...models.course_model import *
 from ...models.user_model import *
 
+import json
 # --- Load environment variables and define paths ---
 load_dotenv()
 
@@ -109,8 +110,7 @@ def create_course(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Course creation failed: {str(e)}")
 
-from fastapi import Form
-import json
+
 
 @router.put("/update-course/{user_id}/{course_id}")
 def update_course(
@@ -296,3 +296,121 @@ def get_course_detail(user_id: int, course_id: int, db: Session = Depends(get_db
 
 
 
+
+from datetime import datetime, timedelta
+
+@router.get("/dashboard/summary/{user_id}")
+def dashboard_summary(user_id: int, db: Session = Depends(get_db)):
+    """
+    Returns dashboard stats for the given user:
+    Includes courses created and co-mentored by them.
+    """
+    try:
+        now = datetime.utcnow()
+        start_month = now.replace(day=1)
+        last_month = (start_month - timedelta(days=1)).replace(day=1)
+        start_quarter = datetime(now.year, 3 * ((now.month - 1) // 3) + 1, 1)
+
+        # Step 1: Get all courses where the user is creator OR a mentor
+        user_course_ids = (
+            db.query(Courses.id)
+            .filter(
+                (Courses.creatorid == user_id) |
+                (Courses.id.in_(
+                    db.query(CourseMentor.course_id).filter(CourseMentor.user_id == user_id)
+                ))
+            )
+            .all()
+        )
+        user_course_ids = [c.id for c in user_course_ids]
+
+        if not user_course_ids:
+            return {
+                "success": True,
+                "data": {
+                    "total_students": 0,
+                    "student_growth_percent": "0%",
+                    "active_courses": 0,
+                    "new_courses_this_quarter": 0,
+                    "avg_completion_percent": "0%",
+                    "student_rating": "0/5",
+                    "percent_positive_rating": "0%"
+                }
+            }
+
+        # ----------------------------
+        # Step 2: TOTAL STUDENTS
+        # Requires Enrollment model — placeholder logic here
+        total_students = 0
+        students_this_month = 0
+        students_last_month = 0
+
+        # If you have Enrollments, replace with:
+        # from ..models.enrollment_model import Enrollments
+        # total_students = db.query(func.count(func.distinct(Enrollments.user_id)))\
+        #     .filter(Enrollments.course_id.in_(user_course_ids)).scalar()
+        # students_this_month = db.query(func.count(func.distinct(Enrollments.user_id)))\
+        #     .filter(Enrollments.course_id.in_(user_course_ids),
+        #             Enrollments.created_at >= start_month).scalar()
+        # students_last_month = db.query(func.count(func.distinct(Enrollments.user_id)))\
+        #     .filter(Enrollments.course_id.in_(user_course_ids),
+        #             Enrollments.created_at >= last_month,
+        #             Enrollments.created_at < start_month).scalar()
+
+        student_growth = (
+            ((students_this_month - students_last_month) / students_last_month) * 100
+            if students_last_month else (100 if students_this_month > 0 else 0)
+        )
+
+        # ----------------------------
+        # Step 3: ACTIVE COURSES
+        active_courses = db.query(Courses).filter(
+            Courses.id.in_(user_course_ids),
+            Courses.is_published == True
+        ).count()
+
+        # ----------------------------
+        # Step 4: NEW ACTIVE COURSES THIS QUARTER
+        new_courses_quarter = db.query(Courses).filter(
+            Courses.id.in_(user_course_ids),
+            Courses.is_published == True,
+            Courses.created_at >= start_quarter
+        ).count()
+
+        # ----------------------------
+        # Step 5: COMPLETION %
+        avg_completion = 0  # placeholder
+        # If you have CourseCompletion:
+        # avg_completion = db.query(func.avg(CourseCompletion.completion_percent))\
+        #     .filter(CourseCompletion.course_id.in_(user_course_ids),
+        #             CourseCompletion.completed == True).scalar() or 0
+
+        # ----------------------------
+        # Step 6: RATINGS
+        avg_rating = 0
+        percent_positive = 0
+        # If you have CourseRating:
+        # avg_rating = db.query(func.avg(CourseRating.rating))\
+        #     .filter(CourseRating.course_id.in_(user_course_ids)).scalar() or 0
+        # total_ratings = db.query(CourseRating)\
+        #     .filter(CourseRating.course_id.in_(user_course_ids)).count()
+        # positive_ratings = db.query(CourseRating)\
+        #     .filter(CourseRating.course_id.in_(user_course_ids),
+        #             CourseRating.rating >= 4).count()
+        # percent_positive = int((positive_ratings / total_ratings) * 100) if total_ratings > 0 else 0
+
+        return {
+            "success": True,
+            "data": {
+                "total_students": total_students,
+                "student_growth_percent": f"{student_growth:.0f}%",
+                "active_courses": active_courses,
+                "new_courses_this_quarter": new_courses_quarter,
+                "avg_completion_percent": f"{avg_completion:.0f}%",
+                "student_rating": f"{avg_rating:.1f}/5",
+                "percent_positive_rating": f"{percent_positive}%"
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dashboard data error: {str(e)}")
