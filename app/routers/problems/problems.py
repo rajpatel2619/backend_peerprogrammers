@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from ...models.problem_model import (
     CodingProblem, Tag, Company,
-    ProblemTag, ProblemCompany, Sheet, SheetProblem
+    ProblemTag, ProblemCompany, Sheet, SheetProblem, Favorite
 )
 from ...connection.utility import get_db
 from fastapi import Query
@@ -271,19 +271,21 @@ def get_all_sheets(db: Session = Depends(get_db)):
     return results
 
 
-
 @router.get("/filter")
 def filter_problems(
     difficulties: Optional[List[str]] = Query(None, description="List of difficulty levels"),
     tag_ids: Optional[List[int]] = Query(None, description="List of Tag IDs"),
     company_ids: Optional[List[int]] = Query(None, description="List of Company IDs"),
     sheet_ids: Optional[List[int]] = Query(None, description="List of Sheet IDs"),
+    favorite: Optional[bool] = Query(False, description="If true, fetch only user's favorite problems"),
+    user_id: Optional[int] = Query(None, description="User ID (required if favorite=true)"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """
-    Filter problems by difficulties, tags, companies, sheets with pagination
+    Filter problems by difficulties, tags, companies, sheets,
+    and optionally only return user's favorite problems, with pagination.
     """
     query = db.query(CodingProblem)
 
@@ -291,7 +293,7 @@ def filter_problems(
     if difficulties:
         query = query.filter(CodingProblem.difficulty.in_(difficulties))
 
-    # Filter by tags (problem must have at least one of the selected tags)
+    # Filter by tags
     if tag_ids:
         query = query.join(CodingProblem.tags).filter(Tag.id.in_(tag_ids))
 
@@ -304,7 +306,14 @@ def filter_problems(
         query = query.join(SheetProblem, SheetProblem.problem_id == CodingProblem.id)\
                      .filter(SheetProblem.sheet_id.in_(sheet_ids))
 
-    # Remove duplicates because of joins
+    # Filter by favorites
+    if favorite:
+        if not user_id:
+            raise HTTPException(status_code=400, detail="user_id is required when favorite=true")
+        query = query.join(Favorite, Favorite.problem_id == CodingProblem.id)\
+                     .filter(Favorite.user_id == user_id)
+
+    # Remove duplicates
     query = query.distinct()
 
     # Pagination
@@ -337,6 +346,7 @@ def filter_problems(
 
 
 
+
 @router.get("/filter-options")
 def get_filter_options(db: Session = Depends(get_db)):
     """
@@ -365,4 +375,69 @@ def get_filter_options(db: Session = Depends(get_db)):
         "sheets": sheets_data,
         "tags": tags_data,
         "difficulties": difficulties_list
+    }
+
+
+
+@router.post("/favorite")
+def add_favorite(
+    user_id: int = Form(...),
+    problem_id: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Marks a coding problem as a favorite for a given user.
+    """
+
+    # Check if problem exists
+    problem = db.query(CodingProblem).filter(CodingProblem.id == problem_id).first()
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    # Check if already marked favorite
+    existing_fav = db.query(Favorite).filter_by(user_id=user_id, problem_id=problem_id).first()
+    if existing_fav:
+        raise HTTPException(status_code=400, detail="Problem is already marked as favorite")
+
+    # Add new favorite
+    fav = Favorite(
+        user_id=user_id,
+        problem_id=problem_id,
+        created_at=datetime.utcnow()
+    )
+    db.add(fav)
+    db.commit()
+    db.refresh(fav)
+
+    return {
+        "message": "Problem marked as favorite successfully",
+        "favorite_id": fav.id,
+        "user_id": user_id,
+        "problem_id": problem_id
+    }
+
+
+@router.delete("/favorite")
+def remove_favorite(
+    user_id: int,
+    problem_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Removes a coding problem from a user's favorites.
+    """
+
+    # Check if favorite exists
+    fav = db.query(Favorite).filter_by(user_id=user_id, problem_id=problem_id).first()
+    if not fav:
+        raise HTTPException(status_code=404, detail="Favorite record not found")
+
+    # Delete favorite record
+    db.delete(fav)
+    db.commit()
+
+    return {
+        "message": "Problem removed from favorites successfully",
+        "user_id": user_id,
+        "problem_id": problem_id
     }
