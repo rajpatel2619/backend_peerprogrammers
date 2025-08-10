@@ -178,7 +178,6 @@ def verify_otp(data: dict, db: Session = Depends(get_db)):
         new_user = User(
             username=temp_user.email,
             password=auth.get_password_hash(temp_user.password),
-            preferredAccount=temp_user.preferredAccount,
             active=True,
             createdAt=datetime.utcnow(),
             updatedAt=datetime.utcnow()
