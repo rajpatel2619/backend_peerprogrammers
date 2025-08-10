@@ -7,6 +7,7 @@ from ...models.problem_model import (
     ProblemTag, ProblemCompany, Sheet, SheetProblem
 )
 from ...connection.utility import get_db
+from fastapi import Query
 
 router = APIRouter(prefix="/problems", tags=["Problems"])
 
@@ -268,3 +269,100 @@ def get_all_sheets(db: Session = Depends(get_db)):
             ]
         })
     return results
+
+
+
+@router.get("/filter")
+def filter_problems(
+    difficulties: Optional[List[str]] = Query(None, description="List of difficulty levels"),
+    tag_ids: Optional[List[int]] = Query(None, description="List of Tag IDs"),
+    company_ids: Optional[List[int]] = Query(None, description="List of Company IDs"),
+    sheet_ids: Optional[List[int]] = Query(None, description="List of Sheet IDs"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    Filter problems by difficulties, tags, companies, sheets with pagination
+    """
+    query = db.query(CodingProblem)
+
+    # Filter by difficulty
+    if difficulties:
+        query = query.filter(CodingProblem.difficulty.in_(difficulties))
+
+    # Filter by tags (problem must have at least one of the selected tags)
+    if tag_ids:
+        query = query.join(CodingProblem.tags).filter(Tag.id.in_(tag_ids))
+
+    # Filter by companies
+    if company_ids:
+        query = query.join(CodingProblem.companies).filter(Company.id.in_(company_ids))
+
+    # Filter by sheets
+    if sheet_ids:
+        query = query.join(SheetProblem, SheetProblem.problem_id == CodingProblem.id)\
+                     .filter(SheetProblem.sheet_id.in_(sheet_ids))
+
+    # Remove duplicates because of joins
+    query = query.distinct()
+
+    # Pagination
+    total = query.count()
+    problems = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    results = []
+    for p in problems:
+        results.append({
+            "id": p.id,
+            "title": p.title,
+            "link": p.link,
+            "difficulty": p.difficulty,
+            "created_at": p.created_at,
+            "updated_at": p.updated_at,
+            "created_by": p.created_by,
+            "gitHubLink": p.gitHubLink,
+            "hindiSolution": p.hindiSolution,
+            "englishSolution": p.englishSolution,
+            "tags": [t.name for t in p.tags],
+            "companies": [c.name for c in p.companies]
+        })
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "results": results
+    }
+
+
+
+@router.get("/filter-options")
+def get_filter_options(db: Session = Depends(get_db)):
+    """
+    Returns all IDs and names for companies, sheets, tags, and available difficulties.
+    Useful for building filters in the frontend.
+    """
+
+    # Companies
+    companies = db.query(Company).order_by(Company.name.asc()).all()
+    companies_data = [{"id": c.id, "name": c.name} for c in companies]
+
+    # Sheets
+    sheets = db.query(Sheet).order_by(Sheet.title.asc()).all()
+    sheets_data = [{"id": s.id, "title": s.title} for s in sheets]
+
+    # Tags
+    tags = db.query(Tag).order_by(Tag.name.asc()).all()
+    tags_data = [{"id": t.id, "name": t.name} for t in tags]
+
+    # Difficulties (get unique values from problems table)
+    difficulties = db.query(CodingProblem.difficulty).distinct().all()
+    difficulties_list = sorted({d[0] for d in difficulties if d[0]})
+
+    return {
+        "companies": companies_data,
+        "sheets": sheets_data,
+        "tags": tags_data,
+        "difficulties": difficulties_list
+    }
