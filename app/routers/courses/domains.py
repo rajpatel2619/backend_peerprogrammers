@@ -128,3 +128,18 @@ def get_unverified_domain_tags(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/all-domain-tags")
+def get_all_domain_tags(db: Session = Depends(get_db)):
+    tags = db.query(DomainTag).order_by(DomainTag.name).all()
+
+    return {
+        "success": True,
+        "total": len(tags),
+        "tags": [
+            {
+                "id": tag.id,
+                "name": tag.name
+            }
+            for tag in tags
+        ]
+    }

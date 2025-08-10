@@ -45,6 +45,10 @@ from .models.problem_model import (
     SheetProblem, Favorite
 )
 from .routers.problems import problems
+from .routers.codeforces_ladder import codeforces_ladder
+from .models.codeforces_ladder_model import *
+
+
 
 # ✅ Create tables
 
@@ -72,6 +76,10 @@ from .routers.problems import problems
 # CourseDomain.__table__.drop(engine)
 # DomainTag.__table__.drop(engine)
 
+# LadderProblemSolution.__table__.drop(engine, checkfirst=True)
+# UserProblemStatus.__table__.drop(engine, checkfirst=True)
+# LadderProblem.__table__.drop(engine, checkfirst=True)
+# Ladder.__table__.drop(engine, checkfirst=True)
 
 # ✅ CORS middleware
 app.add_middleware(
@@ -93,6 +101,7 @@ app.include_router(registraion.router)
 app.include_router(course.router)
 app.include_router(domains.router)
 app.include_router(problems.router)
+app.include_router(codeforces_ladder.router)
 
 
 # ✅ Optional: DB testing code (commented out)
