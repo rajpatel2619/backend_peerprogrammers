@@ -33,7 +33,7 @@ class User(Base):
 
     userType = Column(String(100), default="normal")
 
-    preferredAccount = Column(String(200))  # "Student" or "Instructor"
+    preferredAccount = Column(String(200), nullable=True)  # "Student" or "Instructor"
 
     active = Column(Boolean, default=True)
     createdAt = Column(DateTime, default=datetime.utcnow)

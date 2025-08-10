@@ -58,7 +58,7 @@ def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
         phone_number = signup_data.get("phone_number")
         password = signup_data.get("password")
         repassword = signup_data.get("repassword")
-        # preferred_account = signup_data.get("accountType")   <-- REMOVED
+        preferred_account = "default"
 
         if not all([email, first_name, last_name, phone_number, password, repassword]):
             raise HTTPException(status_code=400, detail="All fields are required")
@@ -89,7 +89,7 @@ def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
             last_name=last_name,
             phone_number=phone_number,
             otp=otp_code,
-            # preferredAccount=preferred_account,  <-- REMOVED
+            preferred_account = "default"
             expires_at=expires_at
         )
 
