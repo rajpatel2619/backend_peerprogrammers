@@ -86,7 +86,7 @@ def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
         repassword = signup_data.get("repassword")
         preferred_account = signup_data.get("accountType")
 
-        if not all([email, first_name, last_name, phone_number, password, repassword, preferred_account]):
+        if not all([email, first_name, last_name, phone_number, password, repassword]):
             raise HTTPException(status_code=400, detail="All fields are required")
 
         if password != repassword:
