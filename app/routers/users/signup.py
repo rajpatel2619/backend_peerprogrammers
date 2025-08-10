@@ -89,7 +89,7 @@ def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
             last_name=last_name,
             phone_number=phone_number,
             otp=otp_code,
-            preferred_account = "default"
+            preferred_account = "default",
             expires_at=expires_at
         )
 
