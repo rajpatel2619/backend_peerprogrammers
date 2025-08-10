@@ -1,3 +1,5 @@
+# app/routes/signup.py
+
 from email.message import EmailMessage
 import random
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,17 +16,40 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 router = APIRouter()
+# app/schemas.py
+
+
 
 def send_otp(receiver_email, sender_email, sender_password, otp):
+
+    # msg = EmailMessage()
+    # msg['subject'] = 'OTP Verification'
+    # msg['from'] = sender_email
+    # msg['to'] = receiver_email
+    # msg.set_content(f"Your OTP is: {otp}\nThis OTP is valid for 5 minutes.")
+
+    # try:
+    #     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+    #         smtp.login(sender_email, sender_password)
+    #         smtp.send_message(msg)
+    #     print("OTP sent successfully!")
+
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=f"Failed to send OTP: {str(e)}")
+    
     message = MIMEMultipart("alternative")
     message["Subject"] = "🔐 OTP Verification"
     message["From"] = sender_email
     message["To"] = receiver_email
 
+    # Manual Templates
     plain_text = f"""
 Hello,
+
 Your One-Time Password (OTP) is: {otp}
+
 This OTP is valid for 5 minutes.
+
 Thank you,
 Your Company Name
 """
@@ -49,6 +74,7 @@ Your Company Name
         server.login(sender_email, sender_password)
         server.sendmail(sender_email, receiver_email, message.as_string())
 
+
 @router.post("/temp-signup")
 def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
     try:
@@ -58,7 +84,7 @@ def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
         phone_number = signup_data.get("phone_number")
         password = signup_data.get("password")
         repassword = signup_data.get("repassword")
-        preferred_account = "default"
+        preferred_account = signup_data.get("accountType")
 
         if not all([email, first_name, last_name, phone_number, password, repassword]):
             raise HTTPException(status_code=400, detail="All fields are required")
@@ -81,15 +107,15 @@ def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
         otp_code = ''.join(random.choices('0123456789', k=6))
         expires_at = datetime.utcnow() + timedelta(minutes=10)
 
-        # Create TempUser (preferredAccount REMOVED)
+        # Create TempUser
         new_temp_user = TempUser(
             email=email,
-            password=password,
+            password=password,  # Store plain password temporarily
             first_name=first_name,
             last_name=last_name,
             phone_number=phone_number,
             otp=otp_code,
-            preferred_account = "default",
+            preferredAccount="default",
             expires_at=expires_at
         )
 
@@ -97,9 +123,12 @@ def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_temp_user)
 
+        # print(f"Generated OTP for {email}: {otp_code}")
+
         sender_email = "validations.peerprogrammers@gmail.com"
         sender_password = "zhiuhrdnosuxqarf"
         send_otp(email, sender_email, sender_password, otp_code)
+
 
         return {
             "message": "Temporary user created successfully. Please verify your email using the OTP.",
@@ -118,6 +147,7 @@ def temp_signup_user(signup_data: dict, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f" {e}")
+
 
 @router.post("/verify-otp")
 def verify_otp(data: dict, db: Session = Depends(get_db)):
@@ -150,8 +180,8 @@ def verify_otp(data: dict, db: Session = Depends(get_db)):
             password=auth.get_password_hash(temp_user.password),
             active=True,
             createdAt=datetime.utcnow(),
-            updatedAt=datetime.utcnow()
-            # preferredAccount=..., <-- REMOVED if present in User model
+            updatedAt=datetime.utcnow(),
+            preferredAccount="default"
         )
         db.add(new_user)
         db.commit()
@@ -169,7 +199,7 @@ def verify_otp(data: dict, db: Session = Depends(get_db)):
         )
         db.add(user_details)
 
-        # Create UserSocialDetails
+        # Create UserSocialDetails (Empty by default)
         user_social = UserSocialDetails(
             userId=new_user.id,
             createdAt=datetime.utcnow(),
@@ -188,7 +218,7 @@ def verify_otp(data: dict, db: Session = Depends(get_db)):
             "user": {
                 "id": new_user.id,
                 "username": new_user.username,
-                # "preferredAccount": new_user.preferredAccount,  # <-- REMOVED from response
+                "preferredAccount": new_user.preferredAccount,
                 "active": new_user.active,
                 "createdAt": new_user.createdAt,
                 "updatedAt": new_user.updatedAt
@@ -201,6 +231,8 @@ def verify_otp(data: dict, db: Session = Depends(get_db)):
         db.rollback()
         print(e)
         raise HTTPException(status_code=500, detail=f" {e}")
+
+
 
 @router.post("/forget-password")
 def forget_password(data: dict, db: Session = Depends(get_db)):
@@ -238,6 +270,10 @@ def forget_password(data: dict, db: Session = Depends(get_db)):
         sender_email = "validations.peerprogrammers@gmail.com"
         sender_password = "zhiuhrdnosuxqarf"
         send_otp(email, sender_email, sender_password, otp_code)
+
+
+        # In real app, send OTP via email or SMS
+        # print(f"Generated OTP for {email}: {otp_code}")
 
         return {
             "message": "OTP generated successfully. Please check your email.",
