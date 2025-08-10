@@ -370,11 +370,12 @@ def get_filter_options(db: Session = Depends(get_db)):
     difficulties = db.query(CodingProblem.difficulty).distinct().all()
     difficulties_list = sorted({d[0] for d in difficulties if d[0]})
 
+    difficulties_data = [{"id": idx + 1, "name": diff} for idx, diff in enumerate(difficulties_list)]
     return {
         "companies": companies_data,
         "sheets": sheets_data,
         "tags": tags_data,
-        "difficulties": difficulties_list
+        "difficulties": difficulties_data
     }
 
 
