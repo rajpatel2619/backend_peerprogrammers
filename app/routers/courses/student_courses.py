@@ -193,14 +193,18 @@ def get_registered_students(course_id: int, db: Session = Depends(get_db)):
         "total": len(students)
     }
 
-from datetime import datetime
+from datetime import date
+from sqlalchemy import or_
+
 
 @router.get("/all_courses")
 def get_all_courses(db: Session = Depends(get_db)):
     try:
+        today = date.today()
+
         courses = (
             db.query(Courses)
-            .filter(Courses.start_date >= datetime.utcnow())
+            .filter(or_(Courses.end_date == None, Courses.end_date >= today))
             .order_by(Courses.created_at.desc())
             .all()
         )
@@ -229,7 +233,7 @@ def get_all_courses(db: Session = Depends(get_db)):
                 "start_date": str(course.start_date) if course.start_date else None,
                 "end_date": str(course.end_date) if course.end_date else None,
                 "domains": [d.domain.name for d in course.domain_tags],
-                "domain_ids": [d.domain_id for d in course.domain_tags],
+                # "domain_ids": [d.domain_id for d in course.domain_tags],
             })
 
         return {"success": True, "courses": result}
