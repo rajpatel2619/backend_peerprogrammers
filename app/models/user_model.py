@@ -53,6 +53,12 @@ class User(Base):
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user_details = relationship("UserDetails", backref="user", uselist=False)
+    
+    user_social_details = relationship(
+    "UserSocialDetails", backref="user", uselist=False, cascade="all, delete-orphan"
+    )
+
+    
     mentorships = relationship("CourseMentor", back_populates="user")
     created_courses = relationship("Courses", back_populates="creator")
 

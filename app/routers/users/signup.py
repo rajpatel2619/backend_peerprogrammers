@@ -205,6 +205,7 @@ def verify_otp(data: dict, db: Session = Depends(get_db)):
             createdAt=datetime.utcnow(),
             updatedAt=datetime.utcnow()
         )
+        
         db.add(user_social)
 
         db.commit()

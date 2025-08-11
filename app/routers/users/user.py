@@ -1,5 +1,5 @@
 from . import auth
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from ...connection.utility import get_db
 from ...schemas.user_schema import *
@@ -69,40 +69,47 @@ def get_user_details(user_id: int, db: Session = Depends(get_db)):
 
     return {"user": response}
 
+
 @router.put("/update_user")
-def update_user(payload: UserUpdateSchema, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == payload.id).first()
+async def update_user(request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
+
+    # Validate essential fields manually
+    if "id" not in data:
+        raise HTTPException(status_code=400, detail="User id is required")
+
+    user = db.query(User).filter(User.id == data["id"]).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     user.updatedAt = datetime.utcnow()
 
-    # Update or create user details
+    # User details
     user_details = db.query(UserDetails).filter(UserDetails.userId == user.id).first()
     if not user_details:
         user_details = UserDetails(userId=user.id)
         db.add(user_details)
 
-    user_details.firstName = payload.first_name
-    user_details.lastName = payload.last_name
-    user_details.phoneNumber = payload.phone_number
-    user_details.address = payload.address
-    user_details.dob = payload.dob
+    user_details.firstName = data.get("first_name")
+    user_details.lastName = data.get("last_name")
+    user_details.phoneNumber = data.get("phone_number")
+    user_details.address = data.get("address")
+    user_details.dob = data.get("dob")
 
-    # Update or create social details
+    # Social details
     social_details = db.query(UserSocialDetails).filter(UserSocialDetails.userId == user.id).first()
     if not social_details:
         social_details = UserSocialDetails(userId=user.id)
         db.add(social_details)
 
-    social_details.facebook = payload.facebook
-    social_details.github = payload.github
-    social_details.linkedin = payload.linkedin
-    social_details.medium = payload.medium
-    social_details.youtube = payload.youtube
-    social_details.twitter = payload.twitter
-    social_details.instagram = payload.instagram
-    social_details.personalWebsite = payload.personal_website
+    social_details.facebook = data.get("facebook")
+    social_details.github = data.get("github")
+    social_details.linkedin = data.get("linkedin")
+    social_details.medium = data.get("medium")
+    social_details.youtube = data.get("youtube")
+    social_details.twitter = data.get("twitter")
+    social_details.instagram = data.get("instagram")
+    social_details.personalWebsite = data.get("personal_website")
 
     db.commit()
 
@@ -133,7 +140,6 @@ def update_user(payload: UserUpdateSchema, db: Session = Depends(get_db)):
     }
 
     return {"message": "User updated successfully", "user": updated_user}
-
 
 
 @router.get("/public_user/{user_id}")
