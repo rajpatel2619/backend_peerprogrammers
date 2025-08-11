@@ -1,3 +1,4 @@
+from app.routers.contact_us import contact_us
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -47,6 +48,9 @@ from .models.problem_model import (
 from .routers.problems import problems
 from .routers.codeforces_ladder import codeforces_ladder
 from .models.codeforces_ladder_model import *
+from .routers.contact_us import *
+from .models.contact_us_model import *
+
 
 
 
@@ -105,6 +109,8 @@ app.include_router(course.router)
 app.include_router(domains.router)
 app.include_router(problems.router)
 app.include_router(codeforces_ladder.router)
+app.include_router(contact_us.router)
+
 
 
 # ✅ Optional: DB testing code (commented out)
