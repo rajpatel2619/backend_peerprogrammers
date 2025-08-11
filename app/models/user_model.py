@@ -1,14 +1,26 @@
 from sqlalchemy import (
-    Column, Integer, String, Boolean, Date, DateTime, Time, Enum, ForeignKey, Table
+    Column,
+    Integer,
+    String,
+    Boolean,
+    Date,
+    DateTime,
+    Time,
+    Enum,
+    ForeignKey,
+    Table,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from ..connection.database import Base  # Assuming you have a database.py file with Base defined
+from ..connection.database import (
+    Base,
+)  # Assuming you have a database.py file with Base defined
 
 from ..schemas.course_schema import *
 
 # Enum for course mode
+
 
 class TempUser(Base):
     __tablename__ = "temp_users"
@@ -23,6 +35,7 @@ class TempUser(Base):
     otp = Column(String(6), nullable=False)
     preferredAccount = Column(String(20))
     expires_at = Column(DateTime, nullable=False)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -43,10 +56,24 @@ class User(Base):
     mentorships = relationship("CourseMentor", back_populates="user")
     created_courses = relationship("Courses", back_populates="creator")
 
-    problems = relationship("CodingProblem", back_populates="user", cascade="all, delete-orphan")
-    favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
+    problems = relationship(
+        "CodingProblem", back_populates="user", cascade="all, delete-orphan"
+    )
+    favorites = relationship(
+        "Favorite", back_populates="user", cascade="all, delete-orphan"
+    )
 
-    problem_status = relationship("UserProblemStatus", back_populates="user", cascade="all, delete-orphan")
+    problem_status = relationship(
+        "UserProblemStatus", back_populates="user", cascade="all, delete-orphan"
+    )
+
+    cp_profile = relationship(
+        "UserCPProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
 
 class UserDetails(Base):
     __tablename__ = "userDetails"
@@ -83,6 +110,7 @@ class UserSocialDetails(Base):
     createdAt = Column(DateTime, default=datetime.utcnow)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+
 class ForgetPassword(Base):
     __tablename__ = "forget_password"
 
@@ -90,4 +118,3 @@ class ForgetPassword(Base):
     email = Column(String(150), unique=True, index=True, nullable=False)
     otp = Column(String(6), nullable=False)
     expiredAt = Column(DateTime, nullable=False)
-

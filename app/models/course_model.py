@@ -57,26 +57,27 @@ class Courses(Base):
 class CourseMentor(Base):
     __tablename__ = "course_mentors"
     
-    id = Column(Integer, primary_key=True, index=True)
-
-    course_id = Column(Integer, ForeignKey("courses.id"), primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
-    role = Column(String(255))  # e.g., "Lead", "Assistant"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String(255))
     joined_at = Column(DateTime, default=datetime.utcnow)
 
     course = relationship("Courses", back_populates="mentors")
     user = relationship("User", back_populates="mentorships")
 
 
+
 class CourseDomain(Base):
     __tablename__ = "course_domains"
     
-    id = Column(Integer, primary_key=True, index=True)
-    course_id = Column(Integer, ForeignKey("courses.id"), primary_key=True)
-    domain_id = Column(Integer, ForeignKey("domain_tags.id"), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    domain_id = Column(Integer, ForeignKey("domain_tags.id"), nullable=False)
 
     course = relationship("Courses", back_populates="domain_tags")
     domain = relationship("DomainTag")
+
 
 
 class DomainTag(Base):

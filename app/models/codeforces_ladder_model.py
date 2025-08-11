@@ -108,3 +108,27 @@ class UserProblemStatus(Base):
     problem = relationship("LadderProblem", back_populates="user_status")
     user = relationship("User", back_populates="problem_status")
 
+
+
+
+class UserCPProfile(Base):
+    __tablename__ = "user_cp_profiles"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True  # 1-to-1 relationship
+    )
+
+    # Competitive programming info
+    codeforces_handle = Column(String(20), nullable=True, index=True)
+    codeforces_rating = Column(Integer, nullable=True)
+    atcoder_handle = Column(String(20), nullable=True)
+    leetcode_handle = Column(String(20), nullable=True)
+
+    last_synced_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationship back to User
+    user = relationship("User", back_populates="cp_profile")

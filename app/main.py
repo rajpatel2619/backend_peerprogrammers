@@ -81,6 +81,9 @@ from .models.codeforces_ladder_model import *
 # LadderProblem.__table__.drop(engine, checkfirst=True)
 # Ladder.__table__.drop(engine, checkfirst=True)
 
+# CourseMentor.__table__.drop(engine, checkfirst=True)
+
+
 # ✅ CORS middleware
 app.add_middleware(
     CORSMiddleware,

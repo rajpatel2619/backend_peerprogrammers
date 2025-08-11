@@ -277,6 +277,7 @@ def get_course_detail(user_id: int, course_id: int, db: Session = Depends(get_db
                 "syllabus_link": course.syllabus_link,
                 "co_mentors": course.co_mentors,
                 "lecture_link": course.lecture_link,
+                "syllabus_content":course.syllausContent,
                 "chatLink": course.chatLink,
                 "price": course.price,
                 "seats": course.seats,
