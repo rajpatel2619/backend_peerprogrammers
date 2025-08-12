@@ -80,6 +80,8 @@ class LadderProblem(Base):
         cascade="all, delete-orphan"
     )
 
+    
+
 
 # ==============================================
 # User Problem Status Table
@@ -132,3 +134,27 @@ class UserCPProfile(Base):
 
     # Relationship back to User
     user = relationship("User", back_populates="cp_profile")
+
+
+class PendingVerification(Base):
+    __tablename__ = "pending_verifications"
+
+    id = Column(Integer, primary_key=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    username = Column(String(50), nullable=False)
+
+    problem_id = Column(String(100), nullable=False, index=True)  # Now plain string
+
+    expiry_at = Column(DateTime, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User", back_populates="pending_verifications")

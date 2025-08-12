@@ -6,19 +6,25 @@ import requests
 import re
 
 from ...models.codeforces_ladder_model import (
-    Ladder, LadderProblem, UserProblemStatus, UserCPProfile
+    Ladder,
+    LadderProblem,
+    UserProblemStatus,
+    UserCPProfile,
 )
 from ...models.user_model import User
 from ...connection.utility import get_db
 
 router = APIRouter(prefix="/ladders", tags=["Ladders"])
 
+
 def fetch_solved_from_codeforces(handle: str):
     url = f"https://codeforces.com/api/user.status?handle={handle}"
     r = requests.get(url)
     data = r.json()
     if data.get("status") != "OK":
-        raise HTTPException(status_code=400, detail=f"Codeforces API error: {data.get('comment')}")
+        raise HTTPException(
+            status_code=400, detail=f"Codeforces API error: {data.get('comment')}"
+        )
     solved_set = set()
     for sub in data["result"]:
         if sub.get("verdict") == "OK":
@@ -26,6 +32,7 @@ def fetch_solved_from_codeforces(handle: str):
             key = f"{prob.get('contestId', '')}{prob.get('index', '')}"
             solved_set.add(key)
     return solved_set
+
 
 # ✅ Fetch all ladders metadata (no problem limit needed)
 @router.get("/", summary="Fetch all ladders only (no problems)")
@@ -38,17 +45,20 @@ def get_all_ladders_meta(db: Session = Depends(get_db)):
             "lower_bound": ladder.lower_bound,
             "upper_bound": ladder.upper_bound,
             "problem_count": ladder.problem_count,
-            "created_at": ladder.created_at.isoformat() if ladder.created_at else None
+            "created_at": ladder.created_at.isoformat() if ladder.created_at else None,
         }
         for ladder in ladders
     ]
+
 
 # ✅ Fetch problems in a ladder (limit to 10 ALWAYS)
 @router.get("/{ladder_id}/problems", summary="Get problems in a ladder")
 def get_ladder_problems(
     ladder_id: int,
-    limit: int = Query(None, description="Optional limit for pagination"),  # Limit param kept for compatibility
-    db: Session = Depends(get_db)
+    limit: int = Query(
+        None, description="Optional limit for pagination"
+    ),  # Limit param kept for compatibility
+    db: Session = Depends(get_db),
 ):
     ladder = db.query(Ladder).filter(Ladder.id == ladder_id).first()
     if not ladder:
@@ -75,22 +85,27 @@ def get_ladder_problems(
                 "online_judge": p.online_judge,
                 "difficulty": p.difficulty,
                 "solutions": [
-                    {"platform": s.platform, "link": s.link}
-                    for s in p.solutions
-                ]
+                    {"platform": s.platform, "link": s.link} for s in p.solutions
+                ],
             }
             for p in problems
-        ]
+        ],
     }
 
+
 # ✅ Mark problem for revisit
-@router.post("/problems/{problem_id}/user/{user_id}/revisit", summary="Mark problem for revisit")
+@router.post(
+    "/problems/{problem_id}/user/{user_id}/revisit", summary="Mark problem for revisit"
+)
 def mark_problem_revisit(problem_id: int, user_id: int, db: Session = Depends(get_db)):
     if not db.query(LadderProblem).filter(LadderProblem.id == problem_id).first():
         raise HTTPException(status_code=404, detail="Problem not found")
     status = (
         db.query(UserProblemStatus)
-        .filter(UserProblemStatus.problem_id == problem_id, UserProblemStatus.user_id == user_id)
+        .filter(
+            UserProblemStatus.problem_id == problem_id,
+            UserProblemStatus.user_id == user_id,
+        )
         .first()
     )
     if not status:
@@ -98,7 +113,7 @@ def mark_problem_revisit(problem_id: int, user_id: int, db: Session = Depends(ge
             user_id=user_id,
             problem_id=problem_id,
             is_revisit=True,
-            checked_at=datetime.utcnow()
+            checked_at=datetime.utcnow(),
         )
         db.add(status)
     else:
@@ -107,20 +122,26 @@ def mark_problem_revisit(problem_id: int, user_id: int, db: Session = Depends(ge
     db.commit()
     return {"message": f"Problem revisit status updated to {status.is_revisit}"}
 
+
 # ✅ Update solve status
-@router.post("/problems/{problem_id}/status", summary="Mark problem solved/unsolved for a user")
+@router.post(
+    "/problems/{problem_id}/status", summary="Mark problem solved/unsolved for a user"
+)
 def update_problem_status(
     problem_id: int,
     user_id: int = Query(...),
     is_completed: bool = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     problem = db.query(LadderProblem).filter(LadderProblem.id == problem_id).first()
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
     status = (
         db.query(UserProblemStatus)
-        .filter(UserProblemStatus.problem_id == problem_id, UserProblemStatus.user_id == user_id)
+        .filter(
+            UserProblemStatus.problem_id == problem_id,
+            UserProblemStatus.user_id == user_id,
+        )
         .first()
     )
     if status:
@@ -131,27 +152,37 @@ def update_problem_status(
             user_id=user_id,
             problem_id=problem_id,
             is_completed=is_completed,
-            checked_at=datetime.utcnow()
+            checked_at=datetime.utcnow(),
         )
         db.add(status)
     db.commit()
-    return {"message": f"Problem marked as {'completed' if is_completed else 'not completed'}"}
+    return {
+        "message": f"Problem marked as {'completed' if is_completed else 'not completed'}"
+    }
+
 
 # ✅ Get completed problems for a user in a ladder (limit to 10)
-@router.get("/{ladder_id}/user/{user_id}/completed", summary="Fetch completed problems for a user")
+@router.get(
+    "/{ladder_id}/user/{user_id}/completed",
+    summary="Fetch completed problems for a user",
+)
 def get_completed_problems(ladder_id: int, user_id: int, db: Session = Depends(get_db)):
-    cp_profile = db.query(UserCPProfile).filter(UserCPProfile.user_id == user_id).first()
+    cp_profile = (
+        db.query(UserCPProfile).filter(UserCPProfile.user_id == user_id).first()
+    )
     if cp_profile and cp_profile.codeforces_handle:
         solved_set = fetch_solved_from_codeforces(cp_profile.codeforces_handle)
         ladder_problems = (
             db.query(LadderProblem.id, LadderProblem.problem_url)
             .filter(LadderProblem.ladder_id == ladder_id)
-            .limit(50) # (fetch up to 50 to have margin, will slice to 10 after check)
+            .limit(10)  # (fetch up to 50 to have margin, will slice to 10 after check)
             .all()
         )
         completed_ids = []
         for pid, url in ladder_problems:
-            match = re.search(r"(?:/contest/|/problemset/problem/)(\d+)/([A-Z]\d*)", url)
+            match = re.search(
+                r"(?:/contest/|/problemset/problem/)(\d+)/([A-Z]\d*)", url
+            )
             if match:
                 contest_id, index = match.groups()
                 if f"{contest_id}{index}" in solved_set:
@@ -166,15 +197,19 @@ def get_completed_problems(ladder_id: int, user_id: int, db: Session = Depends(g
             .filter(
                 LadderProblem.ladder_id == ladder_id,
                 UserProblemStatus.user_id == user_id,
-                UserProblemStatus.is_completed == True
+                UserProblemStatus.is_completed == True,
             )
             .limit(10)
             .all()
         )
         return [{"id": pid} for (pid,) in problems]
 
+
 # ✅ Fetch revisited problems for a user (limit to 10)
-@router.get("/{ladder_id}/user/{user_id}/revisited", summary="Fetch revisited problems for a user")
+@router.get(
+    "/{ladder_id}/user/{user_id}/revisited",
+    summary="Fetch revisited problems for a user",
+)
 def get_revisited_problems(ladder_id: int, user_id: int, db: Session = Depends(get_db)):
     problems = (
         db.query(UserProblemStatus.problem_id)
@@ -182,18 +217,22 @@ def get_revisited_problems(ladder_id: int, user_id: int, db: Session = Depends(g
         .filter(
             LadderProblem.ladder_id == ladder_id,
             UserProblemStatus.user_id == user_id,
-            UserProblemStatus.is_revisit == True
+            UserProblemStatus.is_revisit == True,
         )
         .limit(10)
         .all()
     )
     return [{"id": pid} for (pid,) in problems]
 
+
 @router.get("/cp51/leaderboard", summary="Get CP51 Leaderboard")
 def get_cp51_leaderboard(db: Session = Depends(get_db)):
     total_problems = db.query(func.count(LadderProblem.id)).scalar() or 0
     solved_counts = (
-        db.query(UserProblemStatus.user_id, func.count(UserProblemStatus.problem_id).label("solved_count"))
+        db.query(
+            UserProblemStatus.user_id,
+            func.count(UserProblemStatus.problem_id).label("solved_count"),
+        )
         .filter(UserProblemStatus.is_completed == True)
         .group_by(UserProblemStatus.user_id)
         .all()
@@ -219,29 +258,42 @@ def get_cp51_leaderboard(db: Session = Depends(get_db)):
             title = "🥇 Gold"
         else:
             title = "🥈 Silver"
-        leaderboard.append({
-            "user": u.username,
-            "problems_solved": solved,
-            "progress": f"{round(progress_pct)}% of total",
-            "title": title
-        })
+        leaderboard.append(
+            {
+                "user": u.username,
+                "problems_solved": solved,
+                "progress": f"{round(progress_pct)}% of total",
+                "title": title,
+            }
+        )
     leaderboard.sort(key=lambda x: x["problems_solved"], reverse=True)
     for idx, entry in enumerate(leaderboard, start=1):
         entry["rank"] = idx
     total_users = len(leaderboard)
-    avg_solved = round(sum(e["problems_solved"] for e in leaderboard) / total_users) if total_users else 0
+    avg_solved = (
+        round(sum(e["problems_solved"] for e in leaderboard) / total_users)
+        if total_users
+        else 0
+    )
     return {
         "total_users": total_users,
         "total_problems": total_problems,
         "average_solved": avg_solved,
-        "leaderboard": leaderboard
+        "leaderboard": leaderboard,
     }
 
-@router.get("/cp51/leaderboard/user/{user_id}/rank", summary="Get a user's rank on the CP51 leaderboard")
+
+@router.get(
+    "/cp51/leaderboard/user/{user_id}/rank",
+    summary="Get a user's rank on the CP51 leaderboard",
+)
 def get_user_rank(user_id: int, db: Session = Depends(get_db)):
     total_problems = db.query(func.count(LadderProblem.id)).scalar() or 0
     solved_counts = (
-        db.query(UserProblemStatus.user_id, func.count(UserProblemStatus.problem_id).label("solved_count"))
+        db.query(
+            UserProblemStatus.user_id,
+            func.count(UserProblemStatus.problem_id).label("solved_count"),
+        )
         .filter(UserProblemStatus.is_completed == True)
         .group_by(UserProblemStatus.user_id)
         .order_by(func.count(UserProblemStatus.problem_id).desc())
@@ -270,57 +322,41 @@ def get_user_rank(user_id: int, db: Session = Depends(get_db)):
             "user_id": user_id,
             "rank": None,
             "problems_solved": 0,
-            "progress": "0% of total problems"
+            "progress": "0% of total problems",
         }
     progress_pct = (user_solved / total_problems * 100) if total_problems else 0
     return {
         "user_id": user_id,
         "rank": user_rank,
         "problems_solved": user_solved,
-        "progress": f"{round(progress_pct)}% of total problems"
+        "progress": f"{round(progress_pct)}% of total problems",
     }
 
-@router.post("/profile", summary="Create or update a user's CP profile")
-def set_cp_profile(
-    user_id: int = Form(...),
-    codeforces_handle: str = Form(None),
-    atcoder_handle: str = Form(None),
-    leetcode_handle: str = Form(None),
-    db: Session = Depends(get_db)
-):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    cp_profile = db.query(UserCPProfile).filter(UserCPProfile.user_id == user_id).first()
-    if not cp_profile:
-        cp_profile = UserCPProfile(user_id=user_id)
-    if codeforces_handle is not None:
-        cp_profile.codeforces_handle = codeforces_handle.strip()
-    if atcoder_handle is not None:
-        cp_profile.atcoder_handle = atcoder_handle.strip()
-    if leetcode_handle is not None:
-        cp_profile.leetcode_handle = leetcode_handle.strip()
-    cp_profile.last_synced_at = datetime.utcnow()
-    db.add(cp_profile)
-    db.commit()
-    db.refresh(cp_profile)
-    return {
-        "message": "CP profile updated successfully",
-        "data": {
-            "user_id": cp_profile.user_id,
-            "codeforces_handle": cp_profile.codeforces_handle,
-            "atcoder_handle": cp_profile.atcoder_handle,
-            "leetcode_handle": cp_profile.leetcode_handle
+
+@router.get("/pending/details", summary="Get all pending verifications")
+def get_all_pending_details(db: Session = Depends(get_db)):
+    pendings = db.query(PendingVerification).all()
+
+    if not pendings:
+        raise HTTPException(status_code=404, detail="No pending verifications found")
+
+    return [
+        {
+            "id": p.id,
+            "user_id": p.user_id,
+            "username": p.username,
+            "problem_id": p.problem_id,
+            "expiry_at": p.expiry_at,
         }
-    }
+        for p in pendings
+    ]
 
-@router.get("/profile/{user_id}", summary="Get username, CP profile, and overall progress")
+
+@router.get(
+    "/profile/{user_id}", summary="Get username, CP profile, and overall progress"
+)
 def get_cp_profile(user_id: int, db: Session = Depends(get_db)):
-    user = (
-        db.query(User)
-        .filter(User.id == user_id)
-        .first()
-    )
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -332,7 +368,7 @@ def get_cp_profile(user_id: int, db: Session = Depends(get_db)):
         db.query(UserProblemStatus)
         .filter(
             UserProblemStatus.user_id == user_id,
-            UserProblemStatus.is_completed.is_(True)
+            UserProblemStatus.is_completed.is_(True),
         )
         .count()
     )
@@ -340,59 +376,74 @@ def get_cp_profile(user_id: int, db: Session = Depends(get_db)):
     return {
         "user_id": user.id,
         "username": user.username,
-        "codeforces_handle": user.cp_profile.codeforces_handle if user.cp_profile else None,
+        "codeforces_handle": (
+            user.cp_profile.codeforces_handle if user.cp_profile else None
+        ),
         "atcoder_handle": user.cp_profile.atcoder_handle if user.cp_profile else None,
         "leetcode_handle": user.cp_profile.leetcode_handle if user.cp_profile else None,
-        "overall_progress": {
-            "solved": solved_count,
-            "total": total_count
-        }
+        "overall_progress": {"solved": solved_count, "total": total_count},
     }
 
 
-
-@router.post("/codeforces/sync", summary="Sync solved problems from Codeforces for a specific ladder")
+@router.post(
+    "/codeforces/sync",
+    summary="Sync solved problems from Codeforces for a specific ladder",
+)
 async def sync_codeforces_problems_for_ladder(
-    request: Request,
-    db: Session = Depends(get_db)
+    request: Request, db: Session = Depends(get_db)
 ):
     data = await request.json()
     user_id = data.get("user_id")
     ladder_id = data.get("ladder_id")
     if not user_id or not ladder_id:
         raise HTTPException(status_code=400, detail="Missing user_id or ladder_id")
-    cp_profile = db.query(UserCPProfile).filter(UserCPProfile.user_id == user_id).first()
+    cp_profile = (
+        db.query(UserCPProfile).filter(UserCPProfile.user_id == user_id).first()
+    )
     if not cp_profile or not cp_profile.codeforces_handle:
-        raise HTTPException(status_code=400, detail="No Codeforces handle found for this user")
+        raise HTTPException(
+            status_code=400, detail="No Codeforces handle found for this user"
+        )
     solved_set = fetch_solved_from_codeforces(cp_profile.codeforces_handle)
     ladder_problems = (
         db.query(LadderProblem.id, LadderProblem.problem_url)
-        .filter(LadderProblem.ladder_id == ladder_id, LadderProblem.online_judge == "Codeforces")
+        .filter(
+            LadderProblem.ladder_id == ladder_id,
+        )
         .all()
     )
+
     now = datetime.utcnow()
     problem_ids_to_update = []
     problem_status_new = []
     for pid, url in ladder_problems:
-        match = re.search(r"(?:/contest/|/problemset/problem/)(\d+)/([A-Z]\d*)", url)
+        match = re.search(r"/problem/(\d+)/([A-Z0-9]+)", url, re.IGNORECASE)
+    
         if match:
             contest_id, index = match.groups()
+            # print(f"{contest_id}{index}")
+            # print(100*"_")
             if f"{contest_id}{index}" in solved_set:
                 existing_status = (
                     db.query(UserProblemStatus)
-                    .filter(UserProblemStatus.problem_id == pid, UserProblemStatus.user_id == user_id)
+                    .filter(
+                        UserProblemStatus.problem_id == pid,
+                        UserProblemStatus.user_id == user_id,
+                    )
                     .first()
                 )
                 if existing_status:
                     if not existing_status.is_completed:
                         problem_ids_to_update.append(pid)
                 else:
-                    problem_status_new.append(UserProblemStatus(
-                        user_id=user_id,
-                        problem_id=pid,
-                        is_completed=True,
-                        checked_at=now
-                    ))
+                    problem_status_new.append(
+                        UserProblemStatus(
+                            user_id=user_id,
+                            problem_id=pid,
+                            is_completed=True,
+                            checked_at=now,
+                        )
+                    )
     if problem_status_new:
         db.bulk_save_objects(problem_status_new)
     if problem_ids_to_update:
@@ -406,5 +457,169 @@ async def sync_codeforces_problems_for_ladder(
     db.commit()
     return {
         "message": f"Synced {len(problem_status_new) + len(problem_ids_to_update)} problems from Codeforces for ladder {ladder_id}",
-        "last_synced_at": now.isoformat()
+        "last_synced_at": now.isoformat(),
+    }
+
+
+from datetime import datetime, timedelta
+from ...models.codeforces_ladder_model import PendingVerification
+
+
+@router.post("/profile", summary="Assign a pending verification problem to a user")
+def assign_pending_problem(
+    user_id: int = Form(...),
+    codeforces_username: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    # 1. Validate user exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Remove old pending entry for this user
+    db.query(PendingVerification).filter(
+        PendingVerification.user_id == user_id
+    ).delete()
+
+    # 3. Pick a random problem
+    problem = db.query(LadderProblem).order_by(func.random()).first()
+    if not problem:
+        raise HTTPException(status_code=404, detail="No problems available")
+
+    # 4. Extract problem_id from URL (supports A, A1, AA, etc.)
+    match = re.search(r"/problem/(\d+)/([A-Z0-9]+)", problem.problem_url, re.IGNORECASE)
+    if not match:
+        raise HTTPException(status_code=400, detail="Invalid problem URL format")
+
+    contest_id, index = match.groups()
+    problem_id = f"{contest_id}{index.upper()}"
+
+    # 5. Create pending verification entry
+    expiry_time = datetime.utcnow() + timedelta(minutes=30)
+    pending = PendingVerification(
+        user_id=user.id,
+        username=codeforces_username.strip(),
+        problem_id=problem_id,
+        expiry_at=expiry_time,
+    )
+    db.add(pending)
+    db.commit()
+
+    # 6. Return response
+    return {
+        "message": "Pending verification created",
+        "problem": {
+            "problem_id": problem_id,
+            "handle": pending.username,
+            "problem_name": problem.problem_name,
+            "problem_url": problem.problem_url,
+            "expires_in_seconds": 1800,
+        },
+    }
+
+
+from datetime import timezone
+
+
+@router.get(
+    "/verification-wrong/{user_id}",
+    summary="Verify user handle and wrong answer submission for pending problem",
+)
+def verify_user_wrong_submission(user_id: int, db: Session = Depends(get_db)):
+    # 1. Fetch pending verification
+    pending = (
+        db.query(PendingVerification)
+        .filter(PendingVerification.user_id == user_id)
+        .first()
+    )
+
+    if not pending:
+        return {
+            "detail":"No pending verification for this user"
+        }
+
+    handle = pending.username.strip()
+    problem_id = pending.problem_id.upper()
+    expiry_at = pending.expiry_at
+
+    # 2. Ensure expiry time is in UTC
+    if expiry_at.tzinfo is None:
+        expiry_at = expiry_at.replace(tzinfo=timezone.utc)
+    else:
+        expiry_at = expiry_at.astimezone(timezone.utc)
+
+    expire_epoch = int(expiry_at.timestamp())
+
+    # 3. Check if handle exists on Codeforces
+    user_info_url = f"https://codeforces.com/api/user.info?handles={handle}"
+    user_info_data = requests.get(user_info_url).json()
+
+    if user_info_data.get("status") != "OK" or not user_info_data.get("result"):
+        return {"handle_exists": False, "wrong_submission": False}
+
+    # 4. Fetch submissions from Codeforces
+    submissions_url = f"https://codeforces.com/api/user.status?handle={handle}"
+    submissions_data = requests.get(submissions_url).json()
+
+    if submissions_data.get("status") != "OK":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Codeforces API error: {submissions_data.get('comment')}",
+        )
+
+    # 5. Check for WRONG_ANSWER / COMPILATION_ERROR before expiry
+    wrong_answer_found = False
+    fetched_id = None
+
+    for sub in submissions_data.get("result", []):
+        prob = sub.get("problem")
+        if not prob:
+            continue
+
+        sub_id = f"{prob.get('contestId', '')}{prob.get('index', '').upper()}"
+        if sub_id == problem_id:
+            fetched_id = sub_id
+            sub_time = sub.get("creationTimeSeconds")  # UTC already
+
+            # Debug print (optional)
+            # print(f"Submission time: {sub_time}, Expiry: {expire_epoch}, Verdict: {sub.get('verdict')}")
+
+            if (
+                sub_time
+                and sub_time <= expire_epoch
+                and sub.get("verdict") in ["WRONG_ANSWER", "COMPILATION_ERROR"]
+            ):
+                wrong_answer_found = True
+                profile = db.query(UserCPProfile).filter_by(user_id=user_id).first()
+
+                if profile:
+                    profile.codeforces_handle = handle
+                    profile.last_synced_at = datetime.utcnow()
+                else:
+                    profile = UserCPProfile(
+                        user_id=user_id,
+                        codeforces_handle=handle,
+                        last_synced_at=datetime.utcnow(),
+                    )
+                    db.add(profile)
+
+                if pending:
+                    db.delete(pending)
+
+                db.commit()
+                db.refresh(profile)
+
+                return{
+                    "status": True
+                }
+
+                break
+
+    # 6. Return result
+    return {
+        
+        "fetched_id": fetched_id,
+        "our_id": problem_id,
+        "handle_exists": True,
+        "wrong_submission": wrong_answer_found,
     }

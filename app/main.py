@@ -74,7 +74,7 @@ from .models.contact_us_model import *
 # Sheet.__table__.drop(engine, checkfirst=True)
 #
 
-# Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 # Base.metadata.drop_all(bind=engine)
 
 # CourseDomain.__table__.drop(engine)
