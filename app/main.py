@@ -63,20 +63,21 @@ from .models.contact_us_model import *
 # # ])
 
 
-# # Drop child tables first
+# # Drop children first
 # ProblemTag.__table__.drop(engine, checkfirst=True)
 # ProblemCompany.__table__.drop(engine, checkfirst=True)
 # SheetProblem.__table__.drop(engine, checkfirst=True)
 # Favorite.__table__.drop(engine, checkfirst=True)
 
-# # Then drop parent tables
+# # Then parents
 # CodingProblem.__table__.drop(engine, checkfirst=True)
 # Tag.__table__.drop(engine, checkfirst=True)
 # Company.__table__.drop(engine, checkfirst=True)
 # Sheet.__table__.drop(engine, checkfirst=True)
 
-
+# # Recreate all tables
 # Base.metadata.create_all(bind=engine)
+
 # Base.metadata.drop_all(bind=engine)
 
 # CourseDomain.__table__.drop(engine)

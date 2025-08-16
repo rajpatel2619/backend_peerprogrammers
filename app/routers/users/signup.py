@@ -175,13 +175,15 @@ def verify_otp(data: dict, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Email already registered")
 
         # Create User (Account Info)
+        # Create User (Account Info) with 45-day premium period
         new_user = User(
             username=temp_user.email,
             password=auth.get_password_hash(temp_user.password),
             active=True,
             createdAt=datetime.utcnow(),
             updatedAt=datetime.utcnow(),
-            preferredAccount="default"
+            preferredAccount="default",
+            premium_end=datetime.utcnow() + timedelta(days=45)  # 45 days from now
         )
         db.add(new_user)
         db.commit()
