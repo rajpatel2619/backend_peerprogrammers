@@ -4,7 +4,7 @@ from ...connection.utility import get_db
 from ...models.resource_model import *
 from sqlalchemy.exc import SQLAlchemyError
 
-router = APIRouter()
+router = APIRouter(prefix="/resources", tags=["Resources"])
 
 
 @router.post("/upload-resource")
@@ -115,7 +115,7 @@ def get_all_resources(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
-@router.delete("/resources/{resource_id}")
+@router.delete("/{resource_id}")
 def delete_resource(resource_id: int, db: Session = Depends(get_db)):
     try:
         resource = db.query(Resource).filter_by(id=resource_id).first()
@@ -152,7 +152,7 @@ def get_resource_by_id(resource_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
-@router.post("/resources/{resource_id}/upvote")
+@router.post("/{resource_id}/upvote")
 def upvote_resource(resource_id: int, db: Session = Depends(get_db)):
     try:
         resource = db.query(Resource).filter_by(id=resource_id).first()
@@ -169,7 +169,7 @@ def upvote_resource(resource_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
-@router.post("/resources/{resource_id}/downvote")
+@router.post("/{resource_id}/downvote")
 def downvote_resource(resource_id: int, db: Session = Depends(get_db)):
     try:
         resource = db.query(Resource).filter_by(id=resource_id).first()
@@ -186,7 +186,7 @@ def downvote_resource(resource_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
-@router.get("/resources/domain/all")
+@router.get("/domain/all")
 def get_all_domains(db: Session = Depends(get_db)):
     try:
         domains = db.query(Domain).all()
@@ -195,7 +195,7 @@ def get_all_domains(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
-@router.get("/resources/subdomain/all")
+@router.get("/subdomain/all")
 def get_all_subdomains(db: Session = Depends(get_db)):
     try:
         subdomains = db.query(Subdomain).all()
