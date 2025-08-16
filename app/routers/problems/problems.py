@@ -41,8 +41,13 @@ def delete_tag(tag_id: int, db: Session = Depends(get_db)):
 
     return {"message": f"Tag '{tag.name}' marked as deleted", "tag_id": tag_id}
 
+
 @router.post("/create/tag")
-def create_tag(tag_name: str, db: Session = Depends(get_db)):
+def create_tag(
+    tag_name: str,
+    user_id: int,   
+    db: Session = Depends(get_db)
+):
     # Check if tag exists (active or deleted)
     existing_tag = db.query(Tag).filter(Tag.name == tag_name).first()
 
@@ -50,20 +55,38 @@ def create_tag(tag_name: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Tag already exists")
 
     if existing_tag and existing_tag.deleted:
-        # Reactivate deleted tag
+        # ✅ Reactivate deleted tag & set added_by to new user_id
         existing_tag.deleted = False
         existing_tag.updated_at = datetime.utcnow()
+        existing_tag.added_by = user_id
         db.commit()
         db.refresh(existing_tag)
-        return {"message": "Tag reactivated", "tag": {"id": existing_tag.id, "name": existing_tag.name}}
+        return {
+            "message": "Tag reactivated",
+            "tag": {
+                "id": existing_tag.id,
+                "name": existing_tag.name,
+                "added_by": existing_tag.added_by
+            }
+        }
 
-    # Otherwise create new tag
-    new_tag = Tag(name=tag_name, created_at=datetime.utcnow())
+    # ✅ Otherwise create new tag
+    new_tag = Tag(
+        name=tag_name,
+        created_at=datetime.utcnow(),
+        added_by=user_id,  # ✅ store user_id directly
+    )
     db.add(new_tag)
     db.commit()
     db.refresh(new_tag)
-    return {"message": "Tag created", "tag": {"id": new_tag.id, "name": new_tag.name}}
-
+    return {
+        "message": "Tag created",
+        "tag": {
+            "id": new_tag.id,
+            "name": new_tag.name,
+            "added_by": new_tag.added_by
+        }
+    }
 
 # ===============================
 # Create Company

@@ -56,6 +56,8 @@ class Tag(Base):
     # Relationships
     problem_tags = relationship("ProblemTag", back_populates="tag", cascade="all, delete-orphan")
     problems = relationship("CodingProblem", secondary="problem_tags", viewonly=True)
+
+    
 # ==============================================
 # Company Model
 # ==============================================
