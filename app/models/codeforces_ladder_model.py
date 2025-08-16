@@ -1,9 +1,43 @@
 from sqlalchemy import (
-    Column, Integer, String, ForeignKey, DateTime, Boolean
+    Column, Integer, String, ForeignKey, DateTime, Boolean, Text
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..connection.database import Base
+
+
+
+class CP51Problem(Base):
+    __tablename__ = "cp51_problem"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Core problem details
+    title = Column(String(255), nullable=False)  # Title of Problem
+    problem_link = Column(String(500), nullable=False)  # Link to online judge problem
+    
+    # Difficulty can be string or rating number
+    difficulty = Column(String(50), nullable=True)  # Easy, Medium, Hard
+    rating = Column(Integer, nullable=True)  # Optional e.g. 800,1200,1600
+
+    # Solutions
+    description = Column(Text, nullable=True)
+    github_solution_link = Column(String(500), nullable=True)
+    hindi_solution_link = Column(String(500), nullable=True)
+    english_solution_link = Column(String(500), nullable=True)
+
+    # Metadata
+    created_by = Column(
+        Integer, 
+        ForeignKey("users.id", ondelete="SET NULL"), 
+        nullable=True
+    )
+    is_premium = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    creator = relationship("User", back_populates="problem_resources")
 
 
 # ==============================================

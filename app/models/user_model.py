@@ -85,6 +85,9 @@ class User(Base):
         "PendingVerification", back_populates="user", cascade="all, delete-orphan"
     )
 
+    problem_resources = relationship("CP51Problem", back_populates="creator")
+
+
 
 class UserDetails(Base):
     __tablename__ = "userDetails"

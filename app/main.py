@@ -1,3 +1,4 @@
+from app.routers.codeforces_ladder import cp51
 from app.routers.contact_us import contact_us
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -113,6 +114,7 @@ app.include_router(domains.router)
 app.include_router(problems.router)
 app.include_router(codeforces_ladder.router)
 app.include_router(contact_us.router)
+app.include_router(cp51.router)
 
 
 
