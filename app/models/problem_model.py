@@ -65,6 +65,7 @@ class Company(Base):
     name = Column(String(255), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     added_by = Column(Integer, ForeignKey("users.id"))
+    deleted = Column(Boolean, default=False, nullable=False)
     # Relationships
     problem_companies = relationship("ProblemCompany", back_populates="company", cascade="all, delete-orphan")
     problems = relationship("CodingProblem", secondary="problem_companies", viewonly=True)
@@ -83,6 +84,7 @@ class CodingProblem(Base):
     gitHubLink = Column(String(500))
     hindiSolution = Column(String(500))
     englishSolution = Column(String(500))
+    deleted = Column(Boolean, default=False, nullable=False)
 
     # ✅ New Column
     is_premium = Column(Boolean, default=False, nullable=False)
@@ -109,6 +111,7 @@ class Sheet(Base):
     title = Column(String(255), nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
+    deleted = Column(Boolean, default=False, nullable=False)
     # Relationships
     problems = relationship("SheetProblem", back_populates="sheet", cascade="all, delete-orphan")
 
@@ -122,6 +125,7 @@ class SheetProblem(Base):
     problem_id = Column(Integer, ForeignKey("coding_problems.id", ondelete="CASCADE"))
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
+    deleted = Column(Boolean, default=False, nullable=False)
     # Relationships
     sheet = relationship("Sheet", back_populates="problems")
     problem = relationship("CodingProblem", back_populates="sheets")
@@ -135,6 +139,7 @@ class Favorite(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     problem_id = Column(Integer, ForeignKey("coding_problems.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    deleted = Column(Boolean, default=False, nullable=False)
     # Relationships
     user = relationship("User", back_populates="favorites")
     problem = relationship("CodingProblem", back_populates="favorites")
