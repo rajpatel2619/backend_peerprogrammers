@@ -39,6 +39,9 @@ class ProblemCompany(Base):
     problem = relationship("CodingProblem", back_populates="problem_companies")
     company = relationship("Company", back_populates="problem_companies")
 
+
+
+from sqlalchemy import Boolean
 # ==============================================
 # Tag Model
 # ==============================================
@@ -49,10 +52,10 @@ class Tag(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     added_by = Column(Integer, ForeignKey("users.id"))
+    deleted = Column(Boolean, default=False, nullable=False)  # <--- soft delete flag
     # Relationships
     problem_tags = relationship("ProblemTag", back_populates="tag", cascade="all, delete-orphan")
     problems = relationship("CodingProblem", secondary="problem_tags", viewonly=True)
-
 # ==============================================
 # Company Model
 # ==============================================
@@ -65,7 +68,6 @@ class Company(Base):
     # Relationships
     problem_companies = relationship("ProblemCompany", back_populates="company", cascade="all, delete-orphan")
     problems = relationship("CodingProblem", secondary="problem_companies", viewonly=True)
-
 # ==============================================
 # Coding Problem Model
 # ==============================================
@@ -73,7 +75,7 @@ class CodingProblem(Base):
     __tablename__ = "coding_problems"
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
-    link = Column(String(500), unique=True, nullable=False) # <-- Make nullable=True if you don't want to force link!
+    link = Column(String(500), unique=True, nullable=False)  # <-- change nullable if needed
     difficulty = Column(Enum("Easy", "Medium", "Hard", name="difficulty_levels"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -81,6 +83,10 @@ class CodingProblem(Base):
     gitHubLink = Column(String(500))
     hindiSolution = Column(String(500))
     englishSolution = Column(String(500))
+
+    # ✅ New Column
+    is_premium = Column(Boolean, default=False, nullable=False)
+
     # Relationships
     user = relationship("User", back_populates="problems")
     sheets = relationship("SheetProblem", back_populates="problem", cascade="all, delete-orphan")
@@ -92,6 +98,7 @@ class CodingProblem(Base):
     companies = relationship("Company", secondary="problem_companies", viewonly=True)
     # Favorites
     favorites = relationship("Favorite", back_populates="problem", cascade="all, delete-orphan")
+
 
 # ==============================================
 # Sheet Model

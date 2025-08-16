@@ -48,6 +48,8 @@ class User(Base):
 
     preferredAccount = Column(String(200), nullable=True)  # "Student" or "Instructor"
 
+    premium_end = Column(DateTime, nullable=True)
+
     active = Column(Boolean, default=True)
     createdAt = Column(DateTime, default=datetime.utcnow)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

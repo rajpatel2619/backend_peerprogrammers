@@ -61,18 +61,20 @@ from .models.contact_us_model import *
 #     Payment.__table__,
 # #     CourseRegistration.__table__,
 # # ])
-# Drop association and referencing tables first
+
+
+# # Drop child tables first
 # ProblemTag.__table__.drop(engine, checkfirst=True)
 # ProblemCompany.__table__.drop(engine, checkfirst=True)
 # SheetProblem.__table__.drop(engine, checkfirst=True)
 # Favorite.__table__.drop(engine, checkfirst=True)
 
-# # Then drop main tables
+# # Then drop parent tables
 # CodingProblem.__table__.drop(engine, checkfirst=True)
 # Tag.__table__.drop(engine, checkfirst=True)
 # Company.__table__.drop(engine, checkfirst=True)
 # Sheet.__table__.drop(engine, checkfirst=True)
-#
+
 
 # Base.metadata.create_all(bind=engine)
 # Base.metadata.drop_all(bind=engine)

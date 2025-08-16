@@ -12,6 +12,26 @@ from fastapi import Query
 router = APIRouter(prefix="/problems", tags=["Problems"])
 
 
+
+@router.get("/all/tags")
+def get_all_tags(db: Session = Depends(get_db)):
+    tags = db.query(Tag).filter(Tag.deleted == False).order_by(Tag.name.asc()).all()
+    return [
+        {"id": tag.id, "name": tag.name, "created_at": tag.created_at, "added_by": tag.added_by}
+        for tag in tags
+    ]
+
+
+@router.delete("/delete/tag/{tag_id}")
+def delete_tag(tag_id: int, db: Session = Depends(get_db)):
+    tag = db.query(Tag).filter(Tag.id == tag_id, Tag.deleted == False).first()
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tag not found")
+
+    tag.deleted = True
+    db.commit()
+    return {"message": f"Tag '{tag.name}' marked as deleted", "tag_id": tag_id}
+
 # =========================================
 # Create Tag
 # =========================================
@@ -270,7 +290,6 @@ def get_all_sheets(db: Session = Depends(get_db)):
         })
     return results
 
-
 @router.get("/filter")
 def filter_problems(
     difficulties: Optional[List[str]] = Query(None, description="List of difficulty levels"),
@@ -283,19 +302,18 @@ def filter_problems(
     page_size: int = Query(51, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """
-    Filter problems by difficulties, tags, companies, sheets,
-    and optionally only return user's favorite problems, with pagination.
-    """
     query = db.query(CodingProblem)
 
     # Filter by difficulty
     if difficulties:
         query = query.filter(CodingProblem.difficulty.in_(difficulties))
 
-    # Filter by tags
+    # Filter by tags (ignore deleted tags)
     if tag_ids:
-        query = query.join(CodingProblem.tags).filter(Tag.id.in_(tag_ids))
+        query = (
+            query.join(CodingProblem.tags)
+                 .filter(Tag.id.in_(tag_ids), Tag.deleted == False)
+        )
 
     # Filter by companies
     if company_ids:
@@ -313,10 +331,8 @@ def filter_problems(
         query = query.join(Favorite, Favorite.problem_id == CodingProblem.id)\
                      .filter(Favorite.user_id == user_id)
 
-    # Remove duplicates
     query = query.distinct()
 
-    # Pagination
     total = query.count()
     problems = query.offset((page - 1) * page_size).limit(page_size).all()
 
@@ -333,18 +349,11 @@ def filter_problems(
             "gitHubLink": p.gitHubLink,
             "hindiSolution": p.hindiSolution,
             "englishSolution": p.englishSolution,
-            "tags": [t.name for t in p.tags],
+            "tags": [t.name for t in p.tags if not t.deleted],   # <--- ignore deleted tags here too
             "companies": [c.name for c in p.companies]
         })
 
-    return {
-        "total": total,
-        "page": page,
-        "results": results
-    }
-
-
-
+    return {"total": total, "page": page, "results": results}
 
 @router.get("/filter-options")
 def get_filter_options(db: Session = Depends(get_db)):
@@ -361,8 +370,8 @@ def get_filter_options(db: Session = Depends(get_db)):
     sheets = db.query(Sheet).order_by(Sheet.title.asc()).all()
     sheets_data = [{"id": s.id, "title": s.title} for s in sheets]
 
-    # Tags
-    tags = db.query(Tag).order_by(Tag.name.asc()).all()
+    # Tags (ignore deleted ones)
+    tags = db.query(Tag).filter(Tag.deleted == False).order_by(Tag.name.asc()).all()
     tags_data = [{"id": t.id, "name": t.name} for t in tags]
 
     # Difficulties (get unique values from problems table)
