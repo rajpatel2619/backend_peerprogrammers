@@ -10,7 +10,6 @@ router = APIRouter(prefix="/resources", tags=["Resources"])
 @router.post("/upload-resource")
 def create_resource(payload: dict, db: Session = Depends(get_db)):
     try:
-
         title = payload.get("title")
         description = payload.get("description")
         link = payload.get("link")
@@ -130,6 +129,7 @@ def delete_resource(resource_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+
 @router.get("/resources/{resource_id}")
 def get_resource_by_id(resource_id: int, db: Session = Depends(get_db)):
     try:
@@ -199,6 +199,101 @@ def get_all_domains(db: Session = Depends(get_db)):
 def get_all_subdomains(db: Session = Depends(get_db)):
     try:
         subdomains = db.query(Subdomain).all()
+        return [s.name for s in subdomains]
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+# Missing endpoints start here
+
+@router.patch("/resources/{resource_id}")
+def update_resource(resource_id: int, payload: dict, db: Session = Depends(get_db)):
+    try:
+        resource = db.query(Resource).filter_by(id=resource_id).first()
+        if not resource:
+            raise HTTPException(status_code=404, detail="Resource not found")
+
+        allowed_fields = ["title", "description", "link", "domain_name", "subdomain_name"]
+        for field in allowed_fields:
+            if field in payload:
+                if field == "domain_name":
+                    domain = db.query(Domain).filter_by(name=payload[field]).first()
+                    if not domain:
+                        domain = Domain(name=payload[field])
+                        db.add(domain)
+                        db.commit()
+                        db.refresh(domain)
+                    resource.domain_id = domain.id
+                elif field == "subdomain_name":
+                    domain_id = resource.domain_id
+                    subdomain = db.query(Subdomain).filter_by(
+                        name=payload[field], domain_id=domain_id
+                    ).first()
+                    if not subdomain:
+                        subdomain = Subdomain(name=payload[field], domain_id=domain_id)
+                        db.add(subdomain)
+                        db.commit()
+                        db.refresh(subdomain)
+                    resource.subdomain_id = subdomain.id
+                else:
+                    setattr(resource, field, payload[field])
+        db.commit()
+        db.refresh(resource)
+        return {"message": "Resource updated successfully"}
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.post("/domain")
+def create_domain(payload: dict, db: Session = Depends(get_db)):
+    try:
+        name = payload.get("name")
+        if not name:
+            raise HTTPException(status_code=400, detail="Missing domain name")
+        domain = db.query(Domain).filter_by(name=name).first()
+        if domain:
+            raise HTTPException(status_code=409, detail="Domain already exists")
+        domain = Domain(name=name)
+        db.add(domain)
+        db.commit()
+        db.refresh(domain)
+        return {"message": "Domain created", "domain_id": domain.id}
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.post("/subdomain")
+def create_subdomain(payload: dict, db: Session = Depends(get_db)):
+    try:
+        name = payload.get("name")
+        domain_name = payload.get("domain_name")
+        if not name or not domain_name:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        domain = db.query(Domain).filter_by(name=domain_name).first()
+        if not domain:
+            raise HTTPException(status_code=404, detail="Domain not found")
+        subdomain = db.query(Subdomain).filter_by(name=name, domain_id=domain.id).first()
+        if subdomain:
+            raise HTTPException(status_code=409, detail="Subdomain already exists")
+        subdomain = Subdomain(name=name, domain_id=domain.id)
+        db.add(subdomain)
+        db.commit()
+        db.refresh(subdomain)
+        return {"message": "Subdomain created", "subdomain_id": subdomain.id}
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.get("/domain/{domain_name}/subdomains")
+def get_subdomains_for_domain(domain_name: str, db: Session = Depends(get_db)):
+    try:
+        domain = db.query(Domain).filter_by(name=domain_name).first()
+        if not domain:
+            raise HTTPException(status_code=404, detail="Domain not found")
+        subdomains = db.query(Subdomain).filter_by(domain_id=domain.id).all()
         return [s.name for s in subdomains]
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
