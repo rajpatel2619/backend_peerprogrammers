@@ -230,14 +230,12 @@ def delete_problem(problem_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Problem deleted"}
 
-
 # =========================================
-# Create Sheet
+# Create Sheet (without problems)
 # =========================================
 @router.post("/create_sheet")
 def create_sheet(
     title: str = Form(...),
-    problem_ids: Optional[List[int]] = Form(None),
     created_by: int = Form(1),
     db: Session = Depends(get_db)
 ):
@@ -250,19 +248,10 @@ def create_sheet(
     db.commit()
     db.refresh(new_sheet)
 
-    if problem_ids:
-        for pid in problem_ids:
-            problem = db.query(CodingProblem).filter(CodingProblem.id == pid, CodingProblem.deleted == False).first()
-            if not problem:
-                raise HTTPException(status_code=404, detail=f"Problem ID {pid} not found")
-            db.add(SheetProblem(sheet_id=new_sheet.id, problem_id=pid, created_by=created_by))
-
-    db.commit()
     return {
         "message": "Sheet created successfully",
         "sheet_id": new_sheet.id,
-        "title": new_sheet.title,
-        "problems_added": problem_ids or []
+        "title": new_sheet.title
     }
 
 
