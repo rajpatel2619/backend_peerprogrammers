@@ -394,3 +394,15 @@ def delete_subdomain(subdomain_id: int, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.get("/domain/{domain_id}/subdomains")
+def get_subdomains_for_domain(domain_id: int, db: Session = Depends(get_db)):
+    try:
+        subdomains = db.query(Subdomain).filter_by(domain_id=domain_id).all()
+        return [
+            {"id": s.id, "name": s.name, "domain_id": s.domain_id}
+            for s in subdomains
+        ]
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
