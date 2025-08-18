@@ -57,6 +57,10 @@ from .models.contact_us_model import *
 
 # ✅ Create tables
 
+# # Then drop parent tables if needed
+# Resource.__table__.drop(engine, checkfirst=True)
+# Subdomain.__table__.drop(engine, checkfirst=True)
+# Domain.__table__.drop(engine, checkfirst=True)
 
 # Base.metadata.create_all(bind=engine, tables=[
 #     Payment.__table__,

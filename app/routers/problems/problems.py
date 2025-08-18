@@ -149,13 +149,20 @@ def create_problem(
     is_premium: bool = Form(False),
     tag_ids: Optional[List[int]] = Form(None),
     company_ids: Optional[List[int]] = Form(None),
+    sheet_ids: Optional[List[int]] = Form(None),   # <-- NEW
     created_by: int = Form(1),
     db: Session = Depends(get_db)
 ):
-    existing = db.query(CodingProblem).filter(CodingProblem.title == title, CodingProblem.deleted == False).first()
+    # Ensure unique active title
+    existing = (
+        db.query(CodingProblem)
+          .filter(CodingProblem.title == title, CodingProblem.deleted == False)
+          .first()
+    )
     if existing:
         raise HTTPException(status_code=400, detail="Problem with this title already exists")
 
+    # Create problem
     new_problem = CodingProblem(
         title=title,
         link=link,
@@ -168,27 +175,72 @@ def create_problem(
         is_premium=is_premium
     )
     db.add(new_problem)
-    db.commit()
-    db.refresh(new_problem)
+    db.flush()  # get new_problem.id without committing
 
     # Add tags
     if tag_ids:
-        for tag_id in tag_ids:
-            tag = db.query(Tag).filter(Tag.id == tag_id, Tag.deleted == False).first()
-            if not tag:
-                raise HTTPException(status_code=404, detail=f"Tag ID {tag_id} not found")
+        # Validate all tags first to fail fast
+        valid_tags = (
+            db.query(Tag.id)
+              .filter(Tag.id.in_(tag_ids), Tag.deleted == False)
+              .all()
+        )
+        valid_tag_ids = {t[0] for t in valid_tags}
+        missing = set(tag_ids) - valid_tag_ids
+        if missing:
+            raise HTTPException(status_code=404, detail=f"Tag IDs not found or deleted: {sorted(missing)}")
+
+        for tag_id in valid_tag_ids:
             db.add(ProblemTag(problem_id=new_problem.id, tag_id=tag_id, created_by=created_by))
 
     # Add companies
     if company_ids:
-        for company_id in company_ids:
-            comp = db.query(Company).filter(Company.id == company_id, Company.deleted == False).first()
-            if not comp:
-                raise HTTPException(status_code=404, detail=f"Company ID {company_id} not found")
+        valid_companies = (
+            db.query(Company.id)
+              .filter(Company.id.in_(company_ids), Company.deleted == False)
+              .all()
+        )
+        valid_company_ids = {c for c in valid_companies}
+        missing = set(company_ids) - valid_company_ids
+        if missing:
+            raise HTTPException(status_code=404, detail=f"Company IDs not found or deleted: {sorted(missing)}")
+
+        for company_id in valid_company_ids:
             db.add(ProblemCompany(problem_id=new_problem.id, company_id=company_id, created_by=created_by))
 
+    # Add sheets  <-- NEW SECTION
+    if sheet_ids:
+        valid_sheets = (
+            db.query(Sheet.id)
+              .filter(Sheet.id.in_(sheet_ids), Sheet.deleted == False)
+              .all()
+        )
+        valid_sheet_ids = {s for s in valid_sheets}
+        missing = set(sheet_ids) - valid_sheet_ids
+        if missing:
+            raise HTTPException(status_code=404, detail=f"Sheet IDs not found or deleted: {sorted(missing)}")
+
+        # Avoid duplicate associations if any exist downstream
+        existing_pairs = set(
+            db.query(SheetProblem.sheet_id)
+              .filter(SheetProblem.problem_id == new_problem.id,
+                      SheetProblem.sheet_id.in_(list(valid_sheet_ids)),
+                      SheetProblem.deleted == False)
+              .all()
+        )
+        existing_sheet_ids = {sid for sid in existing_pairs}
+
+        for sheet_id in (valid_sheet_ids - existing_sheet_ids):
+            db.add(SheetProblem(problem_id=new_problem.id, sheet_id=sheet_id, created_by=created_by))
+
+    # Finalize
     db.commit()
-    return {"message": "Problem created successfully", "problem_id": new_problem.id}
+    db.refresh(new_problem)
+
+    return {
+        "message": "Problem created successfully",
+        "problem_id": new_problem.id
+    }
 
 
 # =========================================
@@ -229,6 +281,7 @@ def delete_problem(problem_id: int, db: Session = Depends(get_db)):
     problem.updated_at = datetime.utcnow()
     db.commit()
     return {"message": "Problem deleted"}
+
 
 # =========================================
 # Create Sheet (without problems)
