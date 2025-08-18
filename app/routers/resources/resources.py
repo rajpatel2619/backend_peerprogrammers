@@ -185,12 +185,11 @@ def downvote_resource(resource_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-
 @router.get("/domain/all")
 def get_all_domains(db: Session = Depends(get_db)):
     try:
         domains = db.query(Domain).all()
-        return [d.name for d in domains]
+        return [{"id": d.id, "name": d.name} for d in domains]
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -199,9 +198,10 @@ def get_all_domains(db: Session = Depends(get_db)):
 def get_all_subdomains(db: Session = Depends(get_db)):
     try:
         subdomains = db.query(Subdomain).all()
-        return [s.name for s in subdomains]
+        return [{"id": s.id, "name": s.name, "domain_id": s.domain_id} for s in subdomains]
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 
 
 # Missing endpoints start here
