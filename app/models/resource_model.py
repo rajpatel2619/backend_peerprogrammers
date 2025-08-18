@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint, Boolean   
 from sqlalchemy.orm import relationship
 from ..connection.database import Base
 
@@ -35,6 +35,11 @@ class Resource(Base):
     downvote = Column(Integer, default=0)
     domain_id = Column(Integer, ForeignKey("domains.id"), nullable=False)
     subdomain_id = Column(Integer, ForeignKey("subdomains.id"), nullable=False)
+    
+    # Added fields
+    added_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_verified = Column(Boolean, default=False)
 
     domain = relationship("Domain", back_populates="resources")
     subdomain = relationship("Subdomain", back_populates="resources")
+    user = relationship('User', back_populates='resources')

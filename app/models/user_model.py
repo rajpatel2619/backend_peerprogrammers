@@ -87,6 +87,7 @@ class User(Base):
 
     problem_resources = relationship("CP51Problem", back_populates="creator")
 
+    resources = relationship('Resource', back_populates='user')
 
 
 class UserDetails(Base):

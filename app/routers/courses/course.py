@@ -87,22 +87,21 @@ def get_verified_courses(db: Session = Depends(get_db)):
 
 
 @router.put("/verify_course/{course_id}", status_code=status.HTTP_200_OK)
-def verify_course(course_id: int, db: Session = Depends(get_db)):
+def toggle_verify_course(course_id: int, db: Session = Depends(get_db)):
+    # Fetch the course
     course = db.query(Courses).filter(Courses.id == course_id).first()
-
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-
-    if course.isVerified:
-        return {"success": True, "message": "Course is already verified."}
-
-    course.isVerified = True
+    
+    # Toggle the isVerified field
+    course.isVerified = not course.isVerified
+    
     db.commit()
     db.refresh(course)
-
+    
     return {
         "success": True,
-        "message": "Course verified successfully.",
+        "message": f"Course verification toggled to {course.isVerified}.",
         "course_id": course.id,
         "isVerified": course.isVerified
     }

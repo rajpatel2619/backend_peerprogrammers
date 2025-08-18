@@ -204,7 +204,7 @@ def get_all_courses(db: Session = Depends(get_db)):
 
         courses = (
             db.query(Courses)
-            .filter(or_(Courses.end_date == None, Courses.end_date >= today))
+            # .filter(or_(Courses.end_date == None, Courses.end_date >= today))
             .order_by(Courses.created_at.desc())
             .all()
         )
@@ -229,10 +229,59 @@ def get_all_courses(db: Session = Depends(get_db)):
                     "name": creator_name
                 },
                 "price": course.price,
+                "isVerified": course.isVerified,
                 "seats": course.seats,
                 "start_date": str(course.start_date) if course.start_date else None,
                 "end_date": str(course.end_date) if course.end_date else None,
                 "domains": [d.domain.name for d in course.domain_tags],
+                # "domain_ids": [d.domain_id for d in course.domain_tags],
+            })
+
+        return {"success": True, "courses": result}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {str(e)}")
+
+
+
+
+@router.get("/all_courses_short")
+def get_all_courses_short(db: Session = Depends(get_db)):
+    try:
+        today = date.today()
+
+        courses = (
+            db.query(Courses)
+            # .filter(or_(Courses.end_date == None, Courses.end_date >= today))
+            .order_by(Courses.created_at.desc())
+            .all()
+        )
+
+        result = []
+
+        for course in courses:
+            creator = course.creator  # Assuming Courses.creator → User
+            creator_name = (
+                f"{creator.user_details.firstName} {creator.user_details.lastName}"
+                if creator and creator.user_details else None
+            )
+
+            result.append({
+                "id": course.id,
+                "title": course.title,
+                # "mode": course.mode,
+                # "cover_photo": course.cover_photo,
+                # "syllabus_link": course.syllabus_link,
+                "creator": {
+                    "id": course.creatorid,
+                    "name": creator_name
+                },
+                "price": course.price,
+                "isVerified": course.isVerified,
+                # "seats": course.seats,
+                "start_date": str(course.start_date) if course.start_date else None,
+                # "end_date": str(course.end_date) if course.end_date else None,
+                # "domains": [d.domain.name for d in course.domain_tags],
                 # "domain_ids": [d.domain_id for d in course.domain_tags],
             })
 
