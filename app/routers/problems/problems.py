@@ -1,143 +1,179 @@
-from fastapi import APIRouter, Depends, HTTPException, Form
+from fastapi import APIRouter, Depends, HTTPException, Form, Query
 from typing import Optional, List
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
 from ...models.problem_model import (
     CodingProblem, Tag, Company,
     ProblemTag, ProblemCompany, Sheet, SheetProblem, Favorite
 )
 from ...connection.utility import get_db
-from fastapi import Query
+
 
 router = APIRouter(prefix="/problems", tags=["Problems"])
 
+
+# ===============================
+# TAG CRUD
+# ===============================
+
 @router.get("/all/tags")
 def get_all_tags(db: Session = Depends(get_db)):
-    tags = (
-        db.query(Tag)
-        .filter(Tag.deleted == False)
-        .order_by(Tag.name.asc())
-        .all()
-    )
+    tags = db.query(Tag).filter(Tag.deleted == False).order_by(Tag.name).all()
     return [
-        {
-            "id": tag.id,
-            "name": tag.name,
-            "created_at": tag.created_at,
-            "added_by": tag.added_by,
-        }
-        for tag in tags
+        {"id": t.id, "name": t.name, "created_at": t.created_at, "added_by": t.added_by}
+        for t in tags
     ]
+
+
+@router.post("/create/tag")
+def create_tag(tag_name: str, user_id: int, db: Session = Depends(get_db)):
+    tag = db.query(Tag).filter(Tag.name == tag_name).first()
+
+    if tag and not tag.deleted:
+        raise HTTPException(400, "Tag already exists")
+
+    if tag and tag.deleted:
+        tag.deleted, tag.updated_at, tag.added_by = False, datetime.utcnow(), user_id
+    else:
+        tag = Tag(name=tag_name, created_at=datetime.utcnow(), added_by=user_id)
+        db.add(tag)
+
+    db.commit()
+    db.refresh(tag)
+    return {"message": "Tag reactivated" if tag.updated_at else "Tag created",
+            "tag": {"id": tag.id, "name": tag.name, "added_by": tag.added_by}}
+
 
 @router.delete("/delete/tag/{tag_id}")
 def delete_tag(tag_id: int, db: Session = Depends(get_db)):
     tag = db.query(Tag).filter(Tag.id == tag_id, Tag.deleted == False).first()
     if not tag:
-        raise HTTPException(status_code=404, detail="Tag not found")
+        raise HTTPException(404, "Tag not found")
 
-    tag.deleted = True
-    tag.updated_at = datetime.utcnow()
+    tag.deleted, tag.updated_at = True, datetime.utcnow()
     db.commit()
-
     return {"message": f"Tag '{tag.name}' marked as deleted", "tag_id": tag_id}
 
 
-@router.post("/create/tag")
-def create_tag(
-    tag_name: str,
-    user_id: int,   
-    db: Session = Depends(get_db)
-):
-    # Check if tag exists (active or deleted)
-    existing_tag = db.query(Tag).filter(Tag.name == tag_name).first()
-
-    if existing_tag and not existing_tag.deleted:
-        raise HTTPException(status_code=400, detail="Tag already exists")
-
-    if existing_tag and existing_tag.deleted:
-        # ✅ Reactivate deleted tag & set added_by to new user_id
-        existing_tag.deleted = False
-        existing_tag.updated_at = datetime.utcnow()
-        existing_tag.added_by = user_id
-        db.commit()
-        db.refresh(existing_tag)
-        return {
-            "message": "Tag reactivated",
-            "tag": {
-                "id": existing_tag.id,
-                "name": existing_tag.name,
-                "added_by": existing_tag.added_by
-            }
-        }
-
-    # ✅ Otherwise create new tag
-    new_tag = Tag(
-        name=tag_name,
-        created_at=datetime.utcnow(),
-        added_by=user_id,  # ✅ store user_id directly
-    )
-    db.add(new_tag)
-    db.commit()
-    db.refresh(new_tag)
-    return {
-        "message": "Tag created",
-        "tag": {
-            "id": new_tag.id,
-            "name": new_tag.name,
-            "added_by": new_tag.added_by
-        }
-    }
-
 # ===============================
-# Create Company
+# COMPANY CRUD
 # ===============================
+
 @router.post("/create")
 def create_company(company_name: str, db: Session = Depends(get_db)):
-    existing = db.query(Company).filter(Company.name == company_name).first()
+    company = db.query(Company).filter(Company.name == company_name).first()
 
-    if existing and not existing.deleted:
-        raise HTTPException(status_code=400, detail="Company already exists")
+    if company and not company.deleted:
+        raise HTTPException(400, "Company already exists")
 
-    if existing and existing.deleted:
-        existing.deleted = False
-        existing.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(existing)
-        return {"message": "Company reactivated", "company": {"id": existing.id, "name": existing.name}}
+    if company and company.deleted:
+        company.deleted, company.updated_at = False, datetime.utcnow()
+    else:
+        company = Company(name=company_name, created_at=datetime.utcnow())
+        db.add(company)
 
-    new_company = Company(name=company_name, created_at=datetime.utcnow())
-    db.add(new_company)
     db.commit()
-    db.refresh(new_company)
-    return {"message": "Company created", "company": {"id": new_company.id, "name": new_company.name}}
+    db.refresh(company)
+    return {"message": "Company reactivated" if company.updated_at else "Company created",
+            "company": {"id": company.id, "name": company.name}}
 
 
-# ===============================
-# List Companies (only active)
-# ===============================
 @router.get("/list")
 def list_companies(db: Session = Depends(get_db)):
     companies = db.query(Company).filter(Company.deleted == False).all()
     return {"companies": [{"id": c.id, "name": c.name} for c in companies]}
 
 
-# ===============================
-# Soft Delete Company
-# ===============================
 @router.delete("/{company_id}")
 def delete_company(company_id: int, db: Session = Depends(get_db)):
     company = db.query(Company).filter(Company.id == company_id, Company.deleted == False).first()
     if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
+        raise HTTPException(404, "Company not found")
 
-    company.deleted = True
-    company.updated_at = datetime.utcnow()
+    company.deleted, company.updated_at = True, datetime.utcnow()
     db.commit()
     return {"message": "Company deleted"}
 
-# =========================================
-# Create Problem
-# =========================================
+
+# ===============================
+# PROBLEM CRUD
+# ===============================
+
+@router.put("/update_problem/{problem_id}")
+def update_problem(
+    problem_id: int,
+    title: Optional[str] = Form(None),
+    link: Optional[str] = Form(None),
+    difficulty: Optional[str] = Form(None),
+    gitHubLink: Optional[str] = Form(None),
+    hindiSolution: Optional[str] = Form(None),
+    englishSolution: Optional[str] = Form(None),
+    is_premium: Optional[bool] = Form(None),
+    tag_ids: Optional[List[int]] = Form(None),
+    company_ids: Optional[List[int]] = Form(None),
+    sheet_ids: Optional[List[int]] = Form(None),
+    db: Session = Depends(get_db)
+):
+    problem = db.query(CodingProblem).filter(CodingProblem.id == problem_id, CodingProblem.deleted == False).first()
+    if not problem:
+        raise HTTPException(404, "Problem not found")
+
+    # Update basic fields
+    if title:
+        # check duplicate title
+        existing = db.query(CodingProblem).filter(CodingProblem.title == title, CodingProblem.id != problem_id, CodingProblem.deleted == False).first()
+        if existing:
+            raise HTTPException(400, "Another problem with this title already exists")
+        problem.title = title
+    if link:
+        problem.link = link
+    if difficulty:
+        problem.difficulty = difficulty
+    if gitHubLink is not None:
+        problem.gitHubLink = gitHubLink
+    if hindiSolution is not None:
+        problem.hindiSolution = hindiSolution
+    if englishSolution is not None:
+        problem.englishSolution = englishSolution
+    if is_premium is not None:
+        problem.is_premium = is_premium
+
+    # Update Tags
+    if tag_ids is not None:
+        # Remove existing associations
+        db.query(ProblemTag).filter_by(problem_id=problem_id).delete()
+        for tid in tag_ids:
+            tag = db.query(Tag).filter_by(id=tid, deleted=False).first()
+            if not tag:
+                raise HTTPException(404, f"Tag ID not found: {tid}")
+            db.add(ProblemTag(problem_id=problem_id, tag_id=tid, created_by=problem.created_by))
+
+    # Update Companies
+    if company_ids is not None:
+        db.query(ProblemCompany).filter_by(problem_id=problem_id).delete()
+        for cid in company_ids:
+            company = db.query(Company).filter_by(id=cid, deleted=False).first()
+            if not company:
+                raise HTTPException(404, f"Company ID not found: {cid}")
+            db.add(ProblemCompany(problem_id=problem_id, company_id=cid, created_by=problem.created_by))
+
+    # Update Sheets
+    if sheet_ids is not None:
+        db.query(SheetProblem).filter_by(problem_id=problem_id).delete()
+        for sid in sheet_ids:
+            sheet = db.query(Sheet).filter_by(id=sid, deleted=False).first()
+            if not sheet:
+                raise HTTPException(404, f"Sheet ID not found: {sid}")
+            db.add(SheetProblem(problem_id=problem_id, sheet_id=sid, created_by=problem.created_by))
+
+    problem.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(problem)
+
+    return {"message": "Problem updated successfully", "problem_id": problem.id}
+
+
+
 @router.post("/create_problem")
 def create_problem(
     title: str = Form(...),
@@ -149,118 +185,58 @@ def create_problem(
     is_premium: bool = Form(False),
     tag_ids: Optional[List[int]] = Form(None),
     company_ids: Optional[List[int]] = Form(None),
-    sheet_ids: Optional[List[int]] = Form(None),   # <-- NEW
+    sheet_ids: Optional[List[int]] = Form(None),
     created_by: int = Form(1),
     db: Session = Depends(get_db)
 ):
-    # Ensure unique active title
-    existing = (
-        db.query(CodingProblem)
-          .filter(CodingProblem.title == title, CodingProblem.deleted == False)
-          .first()
-    )
-    if existing:
-        raise HTTPException(status_code=400, detail="Problem with this title already exists")
+    if db.query(CodingProblem).filter(CodingProblem.title == title, CodingProblem.deleted == False).first():
+        raise HTTPException(400, "Problem with this title already exists")
 
-    # Create problem
-    new_problem = CodingProblem(
-        title=title,
-        link=link,
-        difficulty=difficulty,
-        created_at=datetime.utcnow(),
-        created_by=created_by,
-        gitHubLink=gitHubLink,
-        hindiSolution=hindiSolution,
-        englishSolution=englishSolution,
-        is_premium=is_premium
+    problem = CodingProblem(
+        title=title, link=link, difficulty=difficulty,
+        created_at=datetime.utcnow(), created_by=created_by,
+        gitHubLink=gitHubLink, hindiSolution=hindiSolution,
+        englishSolution=englishSolution, is_premium=is_premium
     )
-    db.add(new_problem)
-    db.flush()  # get new_problem.id without committing
+    db.add(problem)
+    db.flush()  # so we get problem.id
 
-    # Add tags
+    # Attach Tags
     if tag_ids:
-        # Validate all tags first to fail fast
-        valid_tags = (
-            db.query(Tag.id)
-              .filter(Tag.id.in_(tag_ids), Tag.deleted == False)
-              .all()
-        )
-        valid_tag_ids = {t[0] for t in valid_tags}
-        missing = set(tag_ids) - valid_tag_ids
-        if missing:
-            raise HTTPException(status_code=404, detail=f"Tag IDs not found or deleted: {sorted(missing)}")
+        for tid in tag_ids:
+            tag = db.query(Tag).filter_by(id=tid, deleted=False).first()
+            if not tag:
+                raise HTTPException(404, f"Tag ID not found: {tid}")
+            db.add(ProblemTag(problem_id=problem.id, tag_id=tid, created_by=created_by))
 
-        for tag_id in valid_tag_ids:
-            db.add(ProblemTag(problem_id=new_problem.id, tag_id=tag_id, created_by=created_by))
-
-    # Add companies
+    # Attach Companies
     if company_ids:
-        valid_companies = (
-            db.query(Company.id)
-              .filter(Company.id.in_(company_ids), Company.deleted == False)
-              .all()
-        )
-        valid_company_ids = {c for c in valid_companies}
-        missing = set(company_ids) - valid_company_ids
-        if missing:
-            raise HTTPException(status_code=404, detail=f"Company IDs not found or deleted: {sorted(missing)}")
+        for cid in company_ids:
+            company = db.query(Company).filter_by(id=cid, deleted=False).first()
+            if not company:
+                raise HTTPException(404, f"Company ID not found: {cid}")
+            db.add(ProblemCompany(problem_id=problem.id, company_id=cid, created_by=created_by))
 
-        for company_id in valid_company_ids:
-            db.add(ProblemCompany(problem_id=new_problem.id, company_id=company_id, created_by=created_by))
-
-    # Add sheets  <-- NEW SECTION
+    # Attach Sheets
     if sheet_ids:
-        valid_sheets = (
-            db.query(Sheet.id)
-              .filter(Sheet.id.in_(sheet_ids), Sheet.deleted == False)
-              .all()
-        )
-        valid_sheet_ids = {s for s in valid_sheets}
-        missing = set(sheet_ids) - valid_sheet_ids
-        if missing:
-            raise HTTPException(status_code=404, detail=f"Sheet IDs not found or deleted: {sorted(missing)}")
+        for sid in sheet_ids:
+            sheet = db.query(Sheet).filter_by(id=sid, deleted=False).first()
+            if not sheet:
+                raise HTTPException(404, f"Sheet ID not found: {sid}")
+            db.add(SheetProblem(problem_id=problem.id, sheet_id=sid, created_by=created_by))
 
-        # Avoid duplicate associations if any exist downstream
-        existing_pairs = set(
-            db.query(SheetProblem.sheet_id)
-              .filter(SheetProblem.problem_id == new_problem.id,
-                      SheetProblem.sheet_id.in_(list(valid_sheet_ids)),
-                      SheetProblem.deleted == False)
-              .all()
-        )
-        existing_sheet_ids = {sid for sid in existing_pairs}
-
-        for sheet_id in (valid_sheet_ids - existing_sheet_ids):
-            db.add(SheetProblem(problem_id=new_problem.id, sheet_id=sheet_id, created_by=created_by))
-
-    # Finalize
     db.commit()
-    db.refresh(new_problem)
-
-    return {
-        "message": "Problem created successfully",
-        "problem_id": new_problem.id
-    }
+    return {"message": "Problem created successfully", "problem_id": problem.id}
 
 
-# =========================================
-# Get All Problems (active only)
-# =========================================
 @router.get("/all_problem")
 def get_all_problems(db: Session = Depends(get_db)):
     problems = db.query(CodingProblem).filter(CodingProblem.deleted == False).all()
     return [
         {
-            "id": p.id,
-            "title": p.title,
-            "link": p.link,
-            "difficulty": p.difficulty,
-            "is_premium": p.is_premium,
-            "created_at": p.created_at,
-            "updated_at": p.updated_at,
-            "gitHubLink": p.gitHubLink,
-            "hindiSolution": p.hindiSolution,
-            "englishSolution": p.englishSolution,
+            "id": p.id, "title": p.title, "link": p.link, "difficulty": p.difficulty,
+            "is_premium": p.is_premium, "created_at": p.created_at, "updated_at": p.updated_at,
+            "gitHubLink": p.gitHubLink, "hindiSolution": p.hindiSolution, "englishSolution": p.englishSolution,
             "tags": [t.name for t in p.tags if not t.deleted],
             "companies": [c.name for c in p.companies if not c.deleted]
         }
@@ -268,69 +244,43 @@ def get_all_problems(db: Session = Depends(get_db)):
     ]
 
 
-# =========================================
-# Soft Delete Problem
-# =========================================
 @router.delete("/deleted_problem/{problem_id}")
 def delete_problem(problem_id: int, db: Session = Depends(get_db)):
     problem = db.query(CodingProblem).filter(CodingProblem.id == problem_id, CodingProblem.deleted == False).first()
     if not problem:
-        raise HTTPException(status_code=404, detail="Problem not found")
-
-    problem.deleted = True
-    problem.updated_at = datetime.utcnow()
+        raise HTTPException(404, "Problem not found")
+    problem.deleted, problem.updated_at = True, datetime.utcnow()
     db.commit()
     return {"message": "Problem deleted"}
 
 
-# =========================================
-# Create Sheet (without problems)
-# =========================================
+# ===============================
+# SHEET CRUD
+# ===============================
+
 @router.post("/create_sheet")
-def create_sheet(
-    title: str = Form(...),
-    created_by: int = Form(1),
-    db: Session = Depends(get_db)
-):
-    existing = db.query(Sheet).filter(Sheet.title == title, Sheet.deleted == False).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Sheet with this title already exists")
-
-    new_sheet = Sheet(title=title, created_by=created_by)
-    db.add(new_sheet)
+def create_sheet(title: str = Form(...), created_by: int = Form(1), db: Session = Depends(get_db)):
+    if db.query(Sheet).filter(Sheet.title == title, Sheet.deleted == False).first():
+        raise HTTPException(400, "Sheet already exists")
+    sheet = Sheet(title=title, created_by=created_by)
+    db.add(sheet)
     db.commit()
-    db.refresh(new_sheet)
-
-    return {
-        "message": "Sheet created successfully",
-        "sheet_id": new_sheet.id,
-        "title": new_sheet.title
-    }
+    db.refresh(sheet)
+    return {"message": "Sheet created", "sheet_id": sheet.id, "title": sheet.title}
 
 
-# =========================================
-# Get All Sheets (active only)
-# =========================================
 @router.get("/all_sheets")
 def get_all_sheets(db: Session = Depends(get_db)):
     sheets = db.query(Sheet).filter(Sheet.deleted == False).all()
     return [
         {
-            "id": s.id,
-            "title": s.title,
-            "created_by": s.created_by,
-            "created_at": s.created_at,
+            "id": s.id, "title": s.title, "created_by": s.created_by, "created_at": s.created_at,
             "problems": [
                 {
-                    "id": sp.problem.id,
-                    "title": sp.problem.title,
-                    "link": sp.problem.link,
-                    "difficulty": sp.problem.difficulty,
-                    "is_premium": sp.problem.is_premium,
-                    "created_at": sp.problem.created_at,
-                    "updated_at": sp.problem.updated_at,
-                    "gitHubLink": sp.problem.gitHubLink,
-                    "hindiSolution": sp.problem.hindiSolution,
+                    "id": sp.problem.id, "title": sp.problem.title, "link": sp.problem.link,
+                    "difficulty": sp.problem.difficulty, "is_premium": sp.problem.is_premium,
+                    "created_at": sp.problem.created_at, "updated_at": sp.problem.updated_at,
+                    "gitHubLink": sp.problem.gitHubLink, "hindiSolution": sp.problem.hindiSolution,
                     "englishSolution": sp.problem.englishSolution,
                     "tags": [t.name for t in sp.problem.tags if not t.deleted],
                     "companies": [c.name for c in sp.problem.companies if not c.deleted]
@@ -342,185 +292,95 @@ def get_all_sheets(db: Session = Depends(get_db)):
     ]
 
 
-# =========================================
-# Soft Delete Sheet
-# =========================================
 @router.delete("/sheets/{sheet_id}")
 def delete_sheet(sheet_id: int, db: Session = Depends(get_db)):
     sheet = db.query(Sheet).filter(Sheet.id == sheet_id, Sheet.deleted == False).first()
     if not sheet:
-        raise HTTPException(status_code=404, detail="Sheet not found")
-
+        raise HTTPException(404, "Sheet not found")
     sheet.deleted = True
     db.commit()
     return {"message": "Sheet deleted"}
 
 
-from fastapi import Query, Form, HTTPException, Depends
-from sqlalchemy.orm import Session, joinedload
-from typing import Optional, List
-from datetime import datetime
+# ===============================
+# FILTER Problems
+# ===============================
 
-# =========================================
-# Filter Problems
-# =========================================
 @router.get("/filter")
 def filter_problems(
-    difficulties: Optional[List[str]] = Query(None, description="List of difficulty levels"),
-    tag_ids: Optional[List[int]] = Query(None, description="List of Tag IDs"),
-    company_ids: Optional[List[int]] = Query(None, description="List of Company IDs"),
-    sheet_ids: Optional[List[int]] = Query(None, description="List of Sheet IDs"),
-    favorite: Optional[bool] = Query(False, description="If true, fetch only user's favorite problems"),
-    user_id: Optional[int] = Query(None, description="User ID (required if favorite=true)"),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=100),
+    difficulties: Optional[List[str]] = Query(None),
+    tag_ids: Optional[List[int]] = Query(None),
+    company_ids: Optional[List[int]] = Query(None),
+    sheet_ids: Optional[List[int]] = Query(None),
+    favorite: bool = Query(False),
+    user_id: Optional[int] = Query(None),
+    page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    query = db.query(CodingProblem).options(
-        joinedload(CodingProblem.tags),
-        joinedload(CodingProblem.companies),
-    )
+    query = db.query(CodingProblem).options(joinedload(CodingProblem.tags), joinedload(CodingProblem.companies))
 
-    # Filter by difficulty
     if difficulties:
         query = query.filter(CodingProblem.difficulty.in_(difficulties))
-
-    # Filter by tags (ignore deleted tags)
     if tag_ids:
-        query = (
-            query.join(CodingProblem.tags)
-                 .filter(Tag.id.in_(tag_ids), Tag.deleted == False)
-        )
-
-    # Filter by companies
+        query = query.join(CodingProblem.tags).filter(Tag.id.in_(tag_ids), Tag.deleted == False)
     if company_ids:
         query = query.join(CodingProblem.companies).filter(Company.id.in_(company_ids))
-
-    # Filter by sheets
     if sheet_ids:
-        query = (
-            query.join(SheetProblem, SheetProblem.problem_id == CodingProblem.id)
-                 .filter(SheetProblem.sheet_id.in_(sheet_ids))
-        )
-
-    # Filter by favorites
+        query = query.join(SheetProblem, SheetProblem.problem_id == CodingProblem.id).filter(SheetProblem.sheet_id.in_(sheet_ids))
     if favorite:
         if not user_id:
-            raise HTTPException(status_code=400, detail="user_id is required when favorite=true")
-        query = (
-            query.join(Favorite, Favorite.problem_id == CodingProblem.id)
-                 .filter(Favorite.user_id == user_id)
-        )
+            raise HTTPException(400, "user_id is required when favorite=true")
+        query = query.join(Favorite, Favorite.problem_id == CodingProblem.id).filter(Favorite.user_id == user_id)
 
-    query = query.distinct()
-
-    total = query.count()
+    total = query.distinct().count()
     problems = query.offset((page - 1) * page_size).limit(page_size).all()
 
-    results = []
-    for p in problems:
-        results.append({
-            "id": p.id,
-            "title": p.title,
-            "link": p.link,
-            "difficulty": p.difficulty,
-            "created_at": p.created_at,
-            "updated_at": p.updated_at,
-            "created_by": p.created_by,
-            "gitHubLink": p.gitHubLink,
-            "hindiSolution": p.hindiSolution,
-            "englishSolution": p.englishSolution,
-            "tags": [t.name for t in p.tags if not t.deleted],   # only active tags
-            "companies": [c.name for c in p.companies]
-        })
-
-    return {"total": total, "page": page, "results": results}
-
-
-# =========================================
-# Filter Options
-# =========================================
-@router.get("/filter-options")
-def get_filter_options(db: Session = Depends(get_db)):
-    """
-    Returns all IDs and names for companies, sheets, tags, and available difficulties.
-    Useful for building filters in the frontend.
-    """
-
-    # Companies
-    companies = db.query(Company).order_by(Company.name.asc()).all()
-    companies_data = [{"id": c.id, "name": c.name} for c in companies if not getattr(c, "deleted", False)]
-
-    # Sheets
-    sheets = db.query(Sheet).order_by(Sheet.title.asc()).all()
-    sheets_data = [{"id": s.id, "title": s.title} for s in sheets if not getattr(s, "deleted", False)]
-
-    # Tags (ignore deleted ones)
-    tags = db.query(Tag).filter(Tag.deleted == False).order_by(Tag.name.asc()).all()
-    tags_data = [{"id": t.id, "name": t.name} for t in tags]
-
-    # Difficulties (get unique values from problems table)
-    difficulties = db.query(CodingProblem.difficulty).distinct().all()
-    difficulties_list = sorted({d[0] for d in difficulties if d[0]})
-
-    difficulties_data = [{"id": idx + 1, "name": diff} for idx, diff in enumerate(difficulties_list)]
-
     return {
-        "companies": companies_data,
-        "sheets": sheets_data,
-        "tags": tags_data,
-        "difficulties": difficulties_data
+        "total": total, "page": page,
+        "results": [
+            {
+                "id": p.id, "title": p.title, "link": p.link, "difficulty": p.difficulty,
+                "created_at": p.created_at, "updated_at": p.updated_at, "created_by": p.created_by,
+                "gitHubLink": p.gitHubLink, "hindiSolution": p.hindiSolution, "englishSolution": p.englishSolution,
+                "tags": [t.name for t in p.tags if not t.deleted],
+                "companies": [c.name for c in p.companies]
+            } for p in problems
+        ]
     }
 
 
-# =========================================
-# Add Favorite
-# =========================================
-@router.post("/favorite")
-def add_favorite(
-    user_id: int = Form(...),
-    problem_id: int = Form(...),
-    db: Session = Depends(get_db)
-):
-    problem = db.query(CodingProblem).filter(CodingProblem.id == problem_id).first()
-    if not problem:
-        raise HTTPException(status_code=404, detail="Problem not found")
+@router.get("/filter-options")
+def get_filter_options(db: Session = Depends(get_db)):
+    companies = [{"id": c.id, "name": c.name} for c in db.query(Company).filter(Company.deleted == False).order_by(Company.name)]
+    sheets = [{"id": s.id, "title": s.title} for s in db.query(Sheet).filter(Sheet.deleted == False).order_by(Sheet.title)]
+    tags = [{"id": t.id, "name": t.name} for t in db.query(Tag).filter(Tag.deleted == False).order_by(Tag.name)]
+    difficulties = [{"id": i+1, "name": d[0]} for i, d in enumerate(db.query(CodingProblem.difficulty).distinct().all()) if d]
 
-    existing_fav = db.query(Favorite).filter_by(user_id=user_id, problem_id=problem_id).first()
-    if existing_fav:
-        raise HTTPException(status_code=400, detail="Problem is already marked as favorite")
+    return {"companies": companies, "sheets": sheets, "tags": tags, "difficulties": difficulties}
+
+
+# ===============================
+# FAVORITES
+# ===============================
+
+@router.post("/favorite")
+def add_favorite(user_id: int = Form(...), problem_id: int = Form(...), db: Session = Depends(get_db)):
+    if not db.query(CodingProblem).filter(CodingProblem.id == problem_id).first():
+        raise HTTPException(404, "Problem not found")
+    if db.query(Favorite).filter_by(user_id=user_id, problem_id=problem_id).first():
+        raise HTTPException(400, "Already favorite")
 
     fav = Favorite(user_id=user_id, problem_id=problem_id, created_at=datetime.utcnow())
     db.add(fav)
     db.commit()
-    db.refresh(fav)
-
-    return {
-        "message": "Problem marked as favorite successfully",
-        "favorite_id": fav.id,
-        "user_id": user_id,
-        "problem_id": problem_id
-    }
+    return {"message": "Added to favorite", "favorite_id": fav.id}
 
 
-# =========================================
-# Remove Favorite
-# =========================================
 @router.delete("/favorite")
-def remove_favorite(
-    user_id: int,
-    problem_id: int,
-    db: Session = Depends(get_db)
-):
+def remove_favorite(user_id: int, problem_id: int, db: Session = Depends(get_db)):
     fav = db.query(Favorite).filter_by(user_id=user_id, problem_id=problem_id).first()
     if not fav:
-        raise HTTPException(status_code=404, detail="Favorite record not found")
-
+        raise HTTPException(404, "Favorite record not found")
     db.delete(fav)
     db.commit()
-
-    return {
-        "message": "Problem removed from favorites successfully",
-        "user_id": user_id,
-        "problem_id": problem_id
-    }
+    return {"message": "Removed from favorites"}
