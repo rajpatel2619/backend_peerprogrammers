@@ -221,6 +221,14 @@ def update_resource(resource_id: int, payload: dict, db: Session = Depends(get_d
 # 🛠️ Utility for formatting responses consistently
 # -----------------------------------------------------------
 def format_resource(r: Resource):
+    # Resolve user name
+    added_by_name = None
+    if r.user:
+        if r.user.user_details and (r.user.user_details.firstName or r.user.user_details.lastName):
+            added_by_name = f"{r.user.user_details.firstName or ''} {r.user.user_details.lastName or ''}".strip()
+        else:
+            added_by_name = r.user.username
+
     return {
         "id": r.id,
         "title": r.title,
@@ -229,10 +237,15 @@ def format_resource(r: Resource):
         "upvote": r.upvote,
         "downvote": r.downvote,
         "domain_id": r.domain_id,
+        "domain_name": r.domain.name if r.domain else None,
         "subdomain_id": r.subdomain_id,
+        "subdomain_name": r.subdomain.name if r.subdomain else None,
         "added_by_id": r.added_by_id,
-        "is_verified": r.is_verified
+        "added_by_name": added_by_name,
+        "is_verified": r.is_verified,
     }
+
+
 
 
 def format_resources(resources: list[Resource]):
