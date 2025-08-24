@@ -30,24 +30,25 @@ def get_unverified_resources(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
-@router.post("/{resource_id}/verify")
-def verify_resource(resource_id: int, db: Session = Depends(get_db)):
+@router.put("/{resource_id}/toggle_verify", status_code=status.HTTP_200_OK)
+def toggle_verify_resource(resource_id: int, db: Session = Depends(get_db)):
     try:
         resource = db.query(Resource).filter_by(id=resource_id).first()
         if not resource:
             raise HTTPException(status_code=404, detail="Resource not found")
-        
-        if resource.is_verified:
-            return {"message": "Resource is already verified"}
 
-        resource.is_verified = True
+        # Toggle the is_verified field
+        resource.is_verified = not resource.is_verified
         db.commit()
         db.refresh(resource)
-        return {"message": "Resource verified successfully", "resource_id": resource.id}
+        return {
+            "message": f"Resource verification toggled to {resource.is_verified}.",
+            "resource_id": resource.id,
+            "is_verified": resource.is_verified,
+        }
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
 
 
 # ✅ Create a new resource using IDs
