@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from ...connection.utility import get_db
-from ...models.resource_model import Domain, Subdomain, Resource
+from ...models.resource_model import Domain, Subdomain, Resource, ResourceVote
 from ...models.user_model import User   # assuming you already have this
 
 router = APIRouter(prefix="/resources", tags=["Resources"])
@@ -169,38 +169,70 @@ def get_resources_by_user(user_id: int, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+from pydantic import BaseModel
+
+class VotePayload(BaseModel):
+    user_id: int
+
 
 # ✅ Upvote
 @router.post("/{resource_id}/upvote")
-def upvote_resource(resource_id: int, db: Session = Depends(get_db)):
+def upvote_resource(resource_id: int, payload: VotePayload, db: Session = Depends(get_db)):
     try:
         resource = db.query(Resource).filter_by(id=resource_id).first()
         if not resource:
             raise HTTPException(status_code=404, detail="Resource not found")
 
-        resource.upvote += 1
+        existing_vote = db.query(ResourceVote).filter_by(resource_id=resource_id, user_id=payload.user_id).first()
+
+        if existing_vote:
+            if existing_vote.vote_type == 1:
+                message = "You have already upvoted this resource"
+            elif existing_vote.vote_type == -1:
+                existing_vote.vote_type = 1
+                resource.downvote -= 1
+                resource.upvote += 1
+                message = "Vote changed to upvote"
+        else:
+            new_vote = ResourceVote(resource_id=resource_id, user_id=payload.user_id, vote_type=1)
+            db.add(new_vote)
+            resource.upvote += 1
+            message = "Resource upvoted"
+
         db.commit()
         db.refresh(resource)
-
-        return {"message": "Resource upvoted", "upvotes": resource.upvote}
+        return {"message": message, "upvotes": resource.upvote, "downvotes": resource.downvote}
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-
 # ✅ Downvote
 @router.post("/{resource_id}/downvote")
-def downvote_resource(resource_id: int, db: Session = Depends(get_db)):
+def downvote_resource(resource_id: int, payload: VotePayload, db: Session = Depends(get_db)):
     try:
         resource = db.query(Resource).filter_by(id=resource_id).first()
         if not resource:
             raise HTTPException(status_code=404, detail="Resource not found")
 
-        resource.downvote += 1
+        existing_vote = db.query(ResourceVote).filter_by(resource_id=resource_id, user_id=payload.user_id).first()
+
+        if existing_vote:
+            if existing_vote.vote_type == -1:
+                message = "You have already downvoted this resource"
+            elif existing_vote.vote_type == 1:
+                existing_vote.vote_type = -1
+                resource.upvote -= 1
+                resource.downvote += 1
+                message = "Vote changed to downvote"
+        else:
+            new_vote = ResourceVote(resource_id=resource_id, user_id=payload.user_id, vote_type=-1)
+            db.add(new_vote)
+            resource.downvote += 1
+            message = "Resource downvoted"
+
         db.commit()
         db.refresh(resource)
-
-        return {"message": "Resource downvoted", "downvotes": resource.downvote}
+        return {"message": message, "upvotes": resource.upvote, "downvotes": resource.downvote}
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

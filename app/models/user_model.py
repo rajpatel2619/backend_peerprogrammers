@@ -89,7 +89,8 @@ class User(Base):
 
     resources = relationship('Resource', back_populates='user')
 
-
+    votes = relationship("ResourceVote", back_populates="user", cascade="all, delete")
+    
 class UserDetails(Base):
     __tablename__ = "userDetails"
 

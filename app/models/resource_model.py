@@ -43,3 +43,19 @@ class Resource(Base):
     domain = relationship("Domain", back_populates="resources")
     subdomain = relationship("Subdomain", back_populates="resources")
     user = relationship('User', back_populates='resources')
+
+    votes = relationship("ResourceVote", back_populates="resource", cascade="all, delete")
+
+
+class ResourceVote(Base):
+    __tablename__ = "resource_votes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    resource_id = Column(Integer, ForeignKey("resources.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    vote_type = Column(Integer, nullable=False)  # 1 for upvote, -1 for downvote
+
+    __table_args__ = (UniqueConstraint("resource_id", "user_id", name="_user_resource_uc"),)
+
+    resource = relationship("Resource", back_populates="votes")
+    user = relationship("User", back_populates="votes")   
