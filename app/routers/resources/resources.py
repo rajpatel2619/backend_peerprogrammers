@@ -8,6 +8,17 @@ from ...models.user_model import User   # assuming you already have this
 router = APIRouter(prefix="/resources", tags=["Resources"])
 
 
+@router.get("/all")
+def get_every_resource(db: Session = Depends(get_db)):
+    try:
+        resources = db.query(Resource).all()
+        return format_resources(resources)
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+
+
 @router.get("/unverified")
 def get_unverified_resources(db: Session = Depends(get_db)):
     try:
