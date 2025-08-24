@@ -118,13 +118,12 @@ def get_resources_by_ids(payload: dict, db: Session = Depends(get_db)):
 
 # ✅ Get all resources
 @router.get("/all-resources")
-def get_all_resources(db: Session = Depends(get_db)):
+def get_all_resources(user_id: int = None, db: Session = Depends(get_db)):
     try:
         resources = db.query(Resource).all()
-        return format_resources(resources)
+        return [format_resource(r, db=db, user_id=user_id) for r in resources]
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
 
 # ✅ Delete resource
 @router.delete("/{resource_id}")
