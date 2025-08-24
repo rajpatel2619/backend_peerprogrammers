@@ -1,0 +1,24 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Python Script",
+      "type": "shell",
+      "command": "git stash || true && git pull origin develop || true && (git stash list | grep -q . && git stash apply) || echo \"No stash to apply\" && source venv/bin/activate && python -m pip install -r requirements.txt --break-system-packages || true && python main.py",
+      "presentation": {
+        "group": "devGroup",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Start Development Environment",
+      "dependsOn": [
+        "Run Python Script"
+      ],
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

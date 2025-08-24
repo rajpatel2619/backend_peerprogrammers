@@ -155,6 +155,21 @@ def get_resource_by_id(resource_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
+# ✅ Get resources by user ID
+@router.get("/by-user/{user_id}")
+def get_resources_by_user(user_id: int, db: Session = Depends(get_db)):
+    try:
+        # Check if user exists
+        user = db.query(User).filter_by(id=user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        resources = db.query(Resource).filter_by(added_by_id=user_id).all()
+        return format_resources(resources)
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
 # ✅ Upvote
 @router.post("/{resource_id}/upvote")
 def upvote_resource(resource_id: int, db: Session = Depends(get_db)):
@@ -358,6 +373,7 @@ def update_domain(domain_id: int, payload: dict, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 @router.delete("/domain/{domain_id}")
 def delete_domain(domain_id: int, db: Session = Depends(get_db)):
     try:
@@ -370,6 +386,8 @@ def delete_domain(domain_id: int, db: Session = Depends(get_db)):
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
 @router.get("/subdomain/{subdomain_id}")
 def get_subdomain_by_id(subdomain_id: int, db: Session = Depends(get_db)):
     try:
@@ -379,6 +397,8 @@ def get_subdomain_by_id(subdomain_id: int, db: Session = Depends(get_db)):
         return {"id": subdomain.id, "name": subdomain.name, "domain_id": subdomain.domain_id}
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
 @router.patch("/subdomain/{subdomain_id}")
 def update_subdomain(subdomain_id: int, payload: dict, db: Session = Depends(get_db)):
     try:
@@ -395,6 +415,8 @@ def update_subdomain(subdomain_id: int, payload: dict, db: Session = Depends(get
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
 @router.delete("/subdomain/{subdomain_id}")
 def delete_subdomain(subdomain_id: int, db: Session = Depends(get_db)):
     try:
