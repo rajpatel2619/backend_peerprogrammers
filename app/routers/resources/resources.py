@@ -30,7 +30,7 @@ def get_unverified_resources(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
-@router.put("/{resource_id}/toggle_verify", status_code=status.HTTP_200_OK)
+@router.put("/toggle_verify/{resource_id}", status_code=status.HTTP_200_OK)
 def toggle_verify_resource(resource_id: int, db: Session = Depends(get_db)):
     try:
         resource = db.query(Resource).filter_by(id=resource_id).first()
