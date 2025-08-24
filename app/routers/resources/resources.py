@@ -176,6 +176,7 @@ class VotePayload(BaseModel):
 
 
 # ✅ Upvote
+
 @router.post("/{resource_id}/upvote")
 def upvote_resource(resource_id: int, payload: VotePayload, db: Session = Depends(get_db)):
     try:
@@ -267,14 +268,19 @@ def update_resource(resource_id: int, payload: dict, db: Session = Depends(get_d
 # -----------------------------------------------------------
 # 🛠️ Utility for formatting responses consistently
 # -----------------------------------------------------------
-def format_resource(r: Resource):
-    # Resolve user name
+def format_resource(r: Resource, db: Session = None, user_id: int = None):
     added_by_name = None
     if r.user:
         if r.user.user_details and (r.user.user_details.firstName or r.user.user_details.lastName):
             added_by_name = f"{r.user.user_details.firstName or ''} {r.user.user_details.lastName or ''}".strip()
         else:
             added_by_name = r.user.username
+
+    vote_status = None
+    if db and user_id:
+        vote = db.query(ResourceVote).filter_by(resource_id=r.id, user_id=user_id).first()
+        if vote:
+            vote_status = "upvoted" if vote.vote_type == 1 else "downvoted"
 
     return {
         "id": r.id,
@@ -290,6 +296,7 @@ def format_resource(r: Resource):
         "added_by_id": r.added_by_id,
         "added_by_name": added_by_name,
         "is_verified": r.is_verified,
+        "user_vote": vote_status,  # can be 'upvoted', 'downvoted', or None
     }
 
 
