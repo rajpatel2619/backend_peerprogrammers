@@ -53,6 +53,8 @@ class Courses(Base):
 
     creator = relationship("User", back_populates="created_courses")
 
+    customer_payments = relationship("CustomerPayment", back_populates="course", cascade="all, delete-orphan")
+
 
 class CourseMentor(Base):
     __tablename__ = "course_mentors"

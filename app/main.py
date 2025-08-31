@@ -51,6 +51,8 @@ from .routers.codeforces_ladder import codeforces_ladder
 from .models.codeforces_ladder_model import *
 from .routers.contact_us import *
 from .models.contact_us_model import *
+from .models.new_registration_model import CustomerPayment
+from .routers.registration import new_registration
 
 
 
@@ -80,6 +82,10 @@ from .models.contact_us_model import *
 # Company.__table__.drop(engine, checkfirst=True)
 # Sheet.__table__.drop(engine, checkfirst=True)
 
+
+# CustomerPayment.__table__.drop(engine, checkfirst = True)
+
+# Base.metadata.create_all(bind=engine)
 # # Recreate all tables
 # Base.metadata.create_all(bind=engine)
 
@@ -119,6 +125,7 @@ app.include_router(problems.router)
 app.include_router(codeforces_ladder.router)
 app.include_router(contact_us.router)
 app.include_router(cp51.router)
+app.include_router(new_registration.router)
 
 
 
