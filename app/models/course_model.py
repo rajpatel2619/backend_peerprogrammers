@@ -8,7 +8,6 @@ from ..connection.database import Base
 from ..schemas.course_schema import CourseMode
 
 
-
 class Courses(Base):
     __tablename__ = "courses"
 
@@ -21,28 +20,20 @@ class Courses(Base):
 
     syllabus_link = Column(String(255), nullable=True)
     syllausContent = Column(String(10000))
-    
     co_mentors = Column(String(255), nullable=True)
-    
     cover_photo = Column(String(255), nullable=True)
     description = Column(String(1000), nullable=True)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
 
-    price = Column(Integer, nullable = True)
+    price = Column(Integer, nullable=True)
     lecture_link = Column(String(255), nullable=True)
-
     domains = Column(String(1000), nullable=True)
-    
-    
-    seats = Column(Integer, nullable = False)
-    chatLink = Column(String(200), nullable = False)
-    
-    # Extra
-    isExtraRegistration = Column(Boolean, default=False)
-    isVerified = Column(Boolean, default = False)
-    
+    seats = Column(Integer, nullable=False)
+    chatLink = Column(String(200), nullable=False)
 
+    isExtraRegistration = Column(Boolean, default=False)
+    isVerified = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -50,11 +41,13 @@ class Courses(Base):
     mentors = relationship("CourseMentor", back_populates="course", cascade="all, delete-orphan")
     domain_tags = relationship("CourseDomain", back_populates="course", cascade="all, delete-orphan")
 
-
     creator = relationship("User", back_populates="created_courses")
 
-    customer_payments = relationship("CustomerPayment", back_populates="course", cascade="all, delete-orphan")
-
+    customer_payments = relationship(
+        "CustomerPayment",
+        back_populates="course",
+        cascade="all, delete-orphan"
+    )
 
 class CourseMentor(Base):
     __tablename__ = "course_mentors"
