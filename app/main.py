@@ -87,7 +87,7 @@ from .routers.organization import organization
 
 # CustomerPayment.__table__.drop(engine, checkfirst = True)
 
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 # # Recreate all tables
 # Base.metadata.create_all(bind=engine)
 
