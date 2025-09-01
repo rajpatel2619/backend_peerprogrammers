@@ -420,7 +420,6 @@ def delete_sheet(sheet_id: int, db: Session = Depends(get_db)):
 # ===============================
 # FILTER Problems
 # ===============================
-
 @router.get("/filter")
 def filter_problems(
     difficulties: Optional[List[str]] = Query(None),
@@ -429,10 +428,15 @@ def filter_problems(
     sheet_ids: Optional[List[int]] = Query(None),
     favorite: bool = Query(False),
     user_id: Optional[int] = Query(None),
-    page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    query = db.query(CodingProblem).options(joinedload(CodingProblem.tags), joinedload(CodingProblem.companies))
+    query = db.query(CodingProblem).options(
+        joinedload(CodingProblem.tags),
+        joinedload(CodingProblem.companies),
+        joinedload(CodingProblem.sheets).joinedload(SheetProblem.sheet)  # <-- fetch sheets too
+    )
 
     if difficulties:
         query = query.filter(CodingProblem.difficulty.in_(difficulties))
@@ -441,27 +445,34 @@ def filter_problems(
     if company_ids:
         query = query.join(CodingProblem.companies).filter(Company.id.in_(company_ids))
     if sheet_ids:
-        query = query.join(SheetProblem, SheetProblem.problem_id == CodingProblem.id).filter(SheetProblem.sheet_id.in_(sheet_ids))
+        query = query.join(SheetProblem, SheetProblem.problem_id == CodingProblem.id)\
+                     .filter(SheetProblem.sheet_id.in_(sheet_ids))
     if favorite:
         if not user_id:
             raise HTTPException(400, "user_id is required when favorite=true")
-        query = query.join(Favorite, Favorite.problem_id == CodingProblem.id).filter(Favorite.user_id == user_id)
+        query = query.join(Favorite, Favorite.problem_id == CodingProblem.id)\
+                     .filter(Favorite.user_id == user_id)
 
     total = query.distinct().count()
     problems = query.offset((page - 1) * page_size).limit(page_size).all()
 
     return {
-        "total": total, "page": page,
+        "total": total,
+        "page": page,
         "results": [
             {
-                "id": p.id, "title": p.title, "link": p.link, "difficulty": p.difficulty,
-                "created_at": p.created_at, "updated_at": p.updated_at, "created_by": p.created_by,
-                "gitHubLink": p.gitHubLink, "hindiSolution": p.hindiSolution, "englishSolution": p.englishSolution,
+                "id": p.id,
+                "title": p.title,
+                "link": p.link,
+                "difficulty": p.difficulty,
                 "tags": [t.name for t in p.tags if not t.deleted],
-                "companies": [c.name for c in p.companies]
-            } for p in problems
+                "companies": [c.name for c in p.companies],
+                "sheets": [sp.sheet.title for sp in p.sheets if not sp.sheet.deleted]  # <-- only titles
+            }
+            for p in problems
         ]
     }
+
 
 
 @router.get("/filter-options")
