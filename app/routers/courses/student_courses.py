@@ -205,6 +205,7 @@ def get_all_courses(db: Session = Depends(get_db)):
         courses = (
             db.query(Courses)
             .filter(Courses.is_published == True)
+            .filter(Courses.isVerified == True)
             # .filter(or_(Courses.end_date == None, Courses.end_date >= today))
             .order_by(Courses.created_at.desc())
             .all()
